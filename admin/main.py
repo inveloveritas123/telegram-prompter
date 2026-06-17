@@ -2,14 +2,17 @@
 Admin-Web-Panel für telegram-prompter.
 FastAPI + Jinja2 + HTMX — kein schweres SPA-Framework.
 """
+
 import json
 import os
+import secrets
 from pathlib import Path
 
 import httpx
 import yaml
-from fastapi import FastAPI, Form, Request, HTTPException
+from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -19,11 +22,46 @@ from admin.config import (
     PIPELINE_YML,
     REPORTS_DIR,
     SECRET_KEYS,
-    STATE_MD,
     STATE_DIR,
+    STATE_MD,
 )
 
-app = FastAPI(title="telegram-prompter Admin", version="1.0.0")
+# ────────────────────────── Authentifizierung ──────────────────────────
+# Das Panel verwaltet Secrets, MCP-Configs und Pipeline-Ziele — es darf NIE
+# ohne Auth erreichbar sein. HTTP-Basic gegen ADMIN_USER/ADMIN_PASSWORD.
+# Fail-closed: sind die Variablen nicht gesetzt, wird JEDE Anfrage mit 503
+# abgewiesen (kein offenes Panel durch Fehlkonfiguration). Zusätzlich bindet
+# docker-compose die Ports nur an 127.0.0.1 (Zugriff via SSH-Tunnel/VPN).
+_security = HTTPBasic()
+
+
+def require_auth(credentials: HTTPBasicCredentials = Depends(_security)) -> str:  # noqa: B008
+    user = os.environ.get("ADMIN_USER", "")
+    password = os.environ.get("ADMIN_PASSWORD", "")
+    if not user or not password:
+        # Fail-closed: ohne konfigurierte Zugangsdaten bleibt das Panel zu.
+        raise HTTPException(
+            status_code=503,
+            detail="Admin-Auth nicht konfiguriert (ADMIN_USER/ADMIN_PASSWORD setzen).",
+        )
+    # Konstante-Zeit-Vergleich gegen User-Enumeration/Timing.
+    ok_user = secrets.compare_digest(credentials.username.encode(), user.encode())
+    ok_pass = secrets.compare_digest(credentials.password.encode(), password.encode())
+    if not (ok_user and ok_pass):
+        raise HTTPException(
+            status_code=401,
+            detail="Ungültige Zugangsdaten.",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
+
+
+# Auth-Dependency global auf ALLE Routen (auch künftige) anwenden.
+app = FastAPI(
+    title="telegram-prompter Admin",
+    version="1.0.0",
+    dependencies=[Depends(require_auth)],
+)
 
 # Templates
 _TPL_DIR = Path(__file__).parent / "templates"
@@ -57,9 +95,7 @@ def _load_mcp() -> dict:
 def _save_mcp(data: dict) -> None:
     """Schreibt mcp.json atomar."""
     _ensure_dirs()
-    MCP_JSON.write_text(
-        json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
+    MCP_JSON.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def _load_pipeline() -> dict:
@@ -214,11 +250,28 @@ async def mcp_remove(name: str = Form(...)):
     return RedirectResponse(url="/?tab=mcp", status_code=303)
 
 
+def _ssrf_guard(url: str) -> str | None:
+    """Minimaler SSRF-Riegel für die (authentifizierte) Verbindungsprüfung.
+    Erlaubt nur http/https und blockt Cloud-Metadata/Link-Local-Hosts. Interne
+    VPN-Hosts (z. B. n8n) bleiben erlaubt — das ist der legitime Zweck. Gibt eine
+    Fehlermeldung zurück, wenn die URL abzulehnen ist, sonst None."""
+    from urllib.parse import urlparse
+
+    p = urlparse(url)
+    if p.scheme not in ("http", "https"):
+        return "Nur http/https erlaubt."
+    host = (p.hostname or "").lower()
+    blocked = {"169.254.169.254", "metadata.google.internal", "100.100.100.200"}
+    if host in blocked or host.startswith("169.254.") or host == "[fd00:ec2::254]":
+        return "Ziel-Host gesperrt (Metadata/Link-Local)."
+    return None
+
+
 @app.post("/mcp/test")
 async def mcp_test(name: str = Form(...)):
     """
     Testet die HTTP-Verbindung zu einem registrierten MCP-Server.
-    Gibt JSON-Status zurück (für HTMX).
+    Gibt JSON-Status zurück (für HTMX). Nur für authentifizierte Admins.
     """
     data = _load_mcp()
     server = data.get("mcpServers", {}).get(name)
@@ -226,13 +279,14 @@ async def mcp_test(name: str = Form(...)):
         return JSONResponse({"ok": False, "detail": "Server nicht gefunden."})
     url = server.get("url", "")
     headers = server.get("headers", {})
+    blocked = _ssrf_guard(url)
+    if blocked:
+        return JSONResponse({"ok": False, "detail": blocked})
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(url, headers=headers)
         ok = resp.status_code < 500
-        return JSONResponse(
-            {"ok": ok, "status": resp.status_code, "detail": resp.reason_phrase}
-        )
+        return JSONResponse({"ok": ok, "status": resp.status_code, "detail": resp.reason_phrase})
     except Exception as exc:
         return JSONResponse({"ok": False, "detail": str(exc)})
 
@@ -294,7 +348,12 @@ async def goal_add(
         data["goals"] = []
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
     data["goals"].append(
-        {"id": goal_id.strip(), "suite": suite.strip(), "acceptance": acceptance.strip(), "tags": tag_list}
+        {
+            "id": goal_id.strip(),
+            "suite": suite.strip(),
+            "acceptance": acceptance.strip(),
+            "tags": tag_list,
+        }
     )
     _save_pipeline(data)
     return RedirectResponse(url="/?tab=goals", status_code=303)

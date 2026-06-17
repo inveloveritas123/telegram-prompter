@@ -8,7 +8,8 @@ MCP-Aufruf lokal simuliert — kein echter Netzwerk-Call.
 
 Verfügbare MCP-Tools (laut BUILD-CONTRACT):
   list_suites() -> [name]
-  run_suite(name, env, tags, only, dry_run) -> {run_id, suite, passed, executed, all_green, report_path}
+  run_suite(name, env, tags, only, dry_run)
+      -> {run_id, suite, passed, executed, all_green, report_path}
   run_case(suite, case_id, dry_run) -> {...}
   get_report(run_id) -> dict
   compare_runs(a, b) -> {regressions, fixed}
@@ -21,7 +22,6 @@ import os
 import uuid
 from dataclasses import dataclass
 
-
 MCP_URL = os.environ.get("PROMPTER_MCP_URL", "http://prompter-mcp:8080/mcp")
 
 
@@ -33,7 +33,7 @@ class SuiteRunResult:
     executed: int
     all_green: bool
     report_path: str
-    red_cases: list[str]    # IDs der roten Fälle
+    red_cases: list[str]  # IDs der roten Fälle
 
 
 class MockMcpClient:
@@ -62,9 +62,7 @@ class MockMcpClient:
             red_cases=[],
         )
 
-    def run_case(
-        self, suite: str, case_id: str, *, dry_run: bool = True
-    ) -> SuiteRunResult:
+    def run_case(self, suite: str, case_id: str, *, dry_run: bool = True) -> SuiteRunResult:
         run_id = uuid.uuid4().hex[:12]
         return SuiteRunResult(
             run_id=run_id,
@@ -123,7 +121,7 @@ class HttpMcpClient:
         return json.loads(text)
 
     def list_suites(self) -> list[str]:  # pragma: no cover
-        return self._call("list_suites", {})
+        return self._call("list_suites", {})  # type: ignore[return-value]  # MCP returns list, not dict
 
     def run_suite(  # pragma: no cover
         self,

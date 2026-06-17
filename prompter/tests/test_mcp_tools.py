@@ -28,10 +28,10 @@ os.environ["REPORTS_DIR"] = str(_TMP_REPORTS)
 # Importiert das Tool-Modul (kein Server nötig).
 from prompter.server import list_suites, run_suite  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 def test_list_suites_gibt_bekannte_suiten_zurück() -> None:
     """list_suites muss mindestens 'kontakt-bot' und 'content-autopilot' enthalten."""
@@ -54,12 +54,16 @@ def test_run_suite_dry_run_gibt_richtiges_schema_zurück() -> None:
     fehlende = pflichtfelder - ergebnis.keys()
     assert not fehlende, f"Fehlende Felder im Ergebnis: {fehlende}"
 
-    assert isinstance(ergebnis["run_id"], str) and ergebnis["run_id"], "run_id muss ein nicht-leerer String sein"
+    assert isinstance(ergebnis["run_id"], str) and ergebnis["run_id"], (
+        "run_id muss ein nicht-leerer String sein"
+    )
     assert ergebnis["suite"] == suiten[0], "suite-Feld muss den Namen der Suite enthalten"
     assert isinstance(ergebnis["passed"], int), "passed muss ein int sein"
     assert isinstance(ergebnis["executed"], int), "executed muss ein int sein"
     assert isinstance(ergebnis["all_green"], bool), "all_green muss ein bool sein"
-    assert Path(ergebnis["report_path"]).exists(), "report_path muss auf eine existierende Datei zeigen"
+    assert Path(ergebnis["report_path"]).exists(), (
+        "report_path muss auf eine existierende Datei zeigen"
+    )
 
 
 def test_run_suite_dry_run_ist_grün() -> None:

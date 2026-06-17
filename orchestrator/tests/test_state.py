@@ -2,10 +2,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
-import pytest
-
 from orchestrator import state as state_mod
 
 
@@ -18,8 +14,13 @@ class TestStateSave:
     def test_inhalt_menschenlesbar(self, tmp_path):
         p = tmp_path / "STATE.md"
         state_mod.save(
-            p, iteration=3, prev_red=2, action="stop", reason="GRUEN + promise",
-            run_id="abc123", suite="kontakt-bot"
+            p,
+            iteration=3,
+            prev_red=2,
+            action="stop",
+            reason="GRUEN + promise",
+            run_id="abc123",
+            suite="kontakt-bot",
         )
         text = p.read_text(encoding="utf-8")
         assert "iteration: 3" in text
@@ -44,8 +45,13 @@ class TestStateLoad:
     def test_roundtrip(self, tmp_path):
         p = tmp_path / "STATE.md"
         state_mod.save(
-            p, iteration=5, prev_red=2, action="continue",
-            reason="Block-Gates rot", run_id="deadbeef", suite="content-autopilot"
+            p,
+            iteration=5,
+            prev_red=2,
+            action="continue",
+            reason="Block-Gates rot",
+            run_id="deadbeef",
+            suite="content-autopilot",
         )
         loaded = state_mod.load(p)
         assert loaded["iteration"] == 5

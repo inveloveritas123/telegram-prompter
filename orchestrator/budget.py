@@ -6,9 +6,8 @@ ob der aktuelle Tick weiterlaufen darf oder gestoppt werden muss.
 
 from __future__ import annotations
 
-import json
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
@@ -55,7 +54,7 @@ def check_time_window(config: dict) -> tuple[bool, str]:
     if isinstance(window, str) and "-" in window:
         try:
             start_s, end_s = window.split("-", 1)
-            now = datetime.now(timezone.utc)
+            now = datetime.now(UTC)
             sh, sm = int(start_s.split(":")[0]), int(start_s.split(":")[1])
             eh, em = int(end_s.split(":")[0]), int(end_s.split(":")[1])
             start_min = sh * 60 + sm

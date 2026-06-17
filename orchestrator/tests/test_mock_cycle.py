@@ -9,15 +9,9 @@ Verifiziert:
 
 from __future__ import annotations
 
-import os
-import tempfile
-from pathlib import Path
-
-import pytest
-
+from orchestrator.decide import decide
 from orchestrator.engine import MockEngine
 from orchestrator.mcp_client import MockMcpClient
-from orchestrator.decide import decide
 
 
 class TestMockEngine:
@@ -104,7 +98,6 @@ class TestRunTick:
     def test_tick_dry_run_exitcode(self, tmp_path):
         """Tick mit Dry-Run muss 0 zurückgeben (stop oder continue, kein Crash)."""
         state_path = tmp_path / "STATE.md"
-        reports_dir = tmp_path / "reports"
         config_path = tmp_path / "pipeline.yml"
 
         # Minimale pipeline.yml
@@ -120,8 +113,8 @@ class TestRunTick:
             encoding="utf-8",
         )
 
-        import orchestrator.state as state_mod
         import orchestrator.budget as budget_mod
+        import orchestrator.state as state_mod
 
         orig_state = state_mod.DEFAULT_STATE_PATH
         orig_config = budget_mod.CONFIG_PATH
@@ -131,6 +124,7 @@ class TestRunTick:
 
         # Überschreibe die Modul-Pfade im run-Modul ebenfalls
         import orchestrator.run as run_mod
+
         orig_run_state = run_mod._STATE_PATH
         orig_run_config = run_mod._CONFIG_PATH
 
@@ -164,9 +158,9 @@ class TestRunTick:
             encoding="utf-8",
         )
 
-        import orchestrator.state as state_mod
         import orchestrator.budget as budget_mod
         import orchestrator.run as run_mod
+        import orchestrator.state as state_mod
 
         state_mod.DEFAULT_STATE_PATH = state_path
         budget_mod.CONFIG_PATH = config_path
@@ -181,4 +175,6 @@ class TestRunTick:
         assert state_path.exists(), "STATE.md wurde nicht geschrieben"
         content = state_path.read_text(encoding="utf-8")
         assert "iteration" in content
-        assert "action" in content or "STOP" in content or "CONTINUE" in content or "HALT" in content
+        assert (
+            "action" in content or "STOP" in content or "CONTINUE" in content or "HALT" in content
+        )

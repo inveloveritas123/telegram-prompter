@@ -28,6 +28,7 @@ from pathlib import Path
 # Pfade
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 
+
 # State- und Report-Pfade: Env-Variable hat Vorrang.
 # Fallback: innerhalb des Repos (lokal / außerhalb Docker).
 def _resolve_path(env_var: str, docker_default: str, local_fallback: Path) -> Path:
@@ -47,9 +48,7 @@ _CONFIG_PATH = _REPO_ROOT / "config" / "pipeline.yml"
 _STATE_PATH = _resolve_path(
     "STATE_PATH", "/app/state/STATE.md", _REPO_ROOT / "app" / "state" / "STATE.md"
 )
-_REPORTS_DIR = _resolve_path(
-    "REPORTS_DIR", "/data/reports", _REPO_ROOT / "app" / "reports"
-)
+_REPORTS_DIR = _resolve_path("REPORTS_DIR", "/data/reports", _REPO_ROOT / "app" / "reports")
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -88,14 +87,15 @@ def _simulate_pr(goal_id: str, run_id: str, dry_run: bool) -> str:
 
 def run_tick(dry_run: bool = False) -> int:
     """Führt einen vollständigen Tick aus. Gibt Exit-Code zurück (0/1/3)."""
+    from orchestrator import state as state_mod
     from orchestrator.budget import check_budget, load_pipeline_config
     from orchestrator.decide import decide
     from orchestrator.engine import create_engine
     from orchestrator.mcp_client import create_client
-    from orchestrator import state as state_mod
 
     _print("── Orchestrator Tick ────────────────────────────────")
-    _print(f"   dry-run={dry_run}  engine={'mock' if dry_run else os.environ.get('ORCHESTRATOR_ENGINE','mock')}")
+    engine_name = "mock" if dry_run else os.environ.get("ORCHESTRATOR_ENGINE", "mock")
+    _print(f"   dry-run={dry_run}  engine={engine_name}")
 
     # --- 1. STATE laden ---
     st = state_mod.load(_STATE_PATH)
@@ -116,8 +116,11 @@ def run_tick(dry_run: bool = False) -> int:
     if not ok:
         _print(f"⛔ {reason}")
         state_mod.save(
-            _STATE_PATH, iteration=iteration, prev_red=prev_red,
-            action="halt", reason=reason,
+            _STATE_PATH,
+            iteration=iteration,
+            prev_red=prev_red,
+            action="halt",
+            reason=reason,
         )
         return 3
 
@@ -126,11 +129,14 @@ def run_tick(dry_run: bool = False) -> int:
     if not goals:
         _print("⛔ Keine Ziele in pipeline.yml — HALT")
         state_mod.save(
-            _STATE_PATH, iteration=iteration, prev_red=prev_red,
-            action="halt", reason="Keine Ziele konfiguriert",
+            _STATE_PATH,
+            iteration=iteration,
+            prev_red=prev_red,
+            action="halt",
+            reason="Keine Ziele konfiguriert",
         )
         return 3
-    goal = goals[0]   # Erstmal nur das erste Ziel (erweiterbar)
+    goal = goals[0]  # Erstmal nur das erste Ziel (erweiterbar)
     goal_id = goal.get("id", "unbekannt")
     suite_name = goal.get("suite", "kontakt-bot")
     goal_tags = goal.get("tags") or []
@@ -148,14 +154,20 @@ def run_tick(dry_run: bool = False) -> int:
     t0 = time.monotonic()
     build_result = engine.build(goal=goal.get("acceptance", goal_id), context=build_ctx)
     build_s = time.monotonic() - t0
-    _print(f"   Build: success={build_result.success}  promise={build_result.promise}  ({build_s:.1f}s)")
+    _print(
+        f"   Build: success={build_result.success}"
+        f"  promise={build_result.promise}  ({build_s:.1f}s)"
+    )
     _print(f"   Build-Summary: {build_result.summary}")
 
     if not build_result.success:
         _print("⛔ Build fehlgeschlagen — HALT")
         state_mod.save(
-            _STATE_PATH, iteration=iteration, prev_red=prev_red,
-            action="halt", reason=f"Build fehlgeschlagen: {build_result.summary}",
+            _STATE_PATH,
+            iteration=iteration,
+            prev_red=prev_red,
+            action="halt",
+            reason=f"Build fehlgeschlagen: {build_result.summary}",
             suite=suite_name,
         )
         return 3
@@ -189,7 +201,7 @@ def run_tick(dry_run: bool = False) -> int:
                 retry_results.append(r)
                 _print(f"     {case_id}: all_green={r.all_green}")
             still_red = [
-                rid for r, rid in zip(retry_results, red_cases) if not r.all_green
+                rid for r, rid in zip(retry_results, red_cases, strict=True) if not r.all_green
             ]
             if not still_red:
                 _print("   Nach Retry alle Fälle grün.")
@@ -252,7 +264,7 @@ def run_tick(dry_run: bool = False) -> int:
         return 3
     else:
         _print(f"▶ {reason}")
-        return 0   # continue → nächster cron-Tick
+        return 0  # continue → nächster cron-Tick
 
 
 def main(argv: list[str] | None = None) -> int:

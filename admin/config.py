@@ -2,6 +2,7 @@
 Zentrale Konfiguration des Admin-Panels.
 Alle Pfade über Umgebungsvariablen konfigurierbar mit sicheren Defaults.
 """
+
 import os
 from pathlib import Path
 
@@ -10,7 +11,9 @@ _REPO_ROOT = Path(__file__).parent.parent
 
 # Pfad-Defaults: Im Container /app/..., lokal relativ zum Repo
 CONFIG_DIR = Path(os.environ.get("CONFIG_DIR", str(_REPO_ROOT / "config")))
-REPORTS_DIR = Path(os.environ.get("REPORTS_DIR", str(_REPO_ROOT / "zukunftsbund-bottests" / "reports")))
+REPORTS_DIR = Path(
+    os.environ.get("REPORTS_DIR", str(_REPO_ROOT / "zukunftsbund-bottests" / "reports"))
+)
 STATE_DIR = Path(os.environ.get("STATE_DIR", str(_REPO_ROOT / "state")))
 
 MCP_JSON = CONFIG_DIR / "mcp.json"

@@ -14,7 +14,6 @@ import os
 import sys
 from dataclasses import asdict
 from pathlib import Path
-from typing import Optional
 
 import fastmcp
 
@@ -25,8 +24,8 @@ _FRAMEWORK_DIR = _REPO_ROOT / "zukunftsbund-bottests"
 if str(_FRAMEWORK_DIR) not in sys.path:
     sys.path.insert(0, str(_FRAMEWORK_DIR))
 
-from runner.loader import discover_suites, load_suite
 from runner.engine import run_suite as _engine_run_suite
+from runner.loader import discover_suites, load_suite
 from runner.reporter import write_json
 
 # Konfigurierbare Verzeichnisse (via Env-Variablen, Container-Defaults).
@@ -40,14 +39,19 @@ mcp = fastmcp.FastMCP("prompter-mcp")
 # Hilfsfunktionen
 # ---------------------------------------------------------------------------
 
+
 def _suite_result_to_dict(result, report_path: Path | None = None) -> dict:
     """Wandelt ein SuiteResult in ein JSON-serialisierbares Dict um."""
     d = asdict(result)
     # Enums -> str
     for case in d["cases"]:
-        case["status"] = case["status"].value if hasattr(case["status"], "value") else case["status"]
+        case["status"] = (
+            case["status"].value if hasattr(case["status"], "value") else case["status"]
+        )
         for step in case["steps"]:
-            step["status"] = step["status"].value if hasattr(step["status"], "value") else step["status"]
+            step["status"] = (
+                step["status"].value if hasattr(step["status"], "value") else step["status"]
+            )
     return d
 
 
@@ -65,6 +69,7 @@ def _find_report_file(run_id: str) -> Path | None:
 # MCP-Tools
 # ---------------------------------------------------------------------------
 
+
 @mcp.tool()
 def list_suites() -> list[str]:
     """Gibt die Namen aller verfügbaren Test-Suiten zurück."""
@@ -76,8 +81,8 @@ def list_suites() -> list[str]:
 def run_suite(
     name: str,
     env: str = "staging",
-    tags: Optional[list[str]] = None,
-    only: Optional[list[str]] = None,
+    tags: list[str] | None = None,
+    only: list[str] | None = None,
     dry_run: bool = True,
 ) -> dict:
     """Fährt eine Test-Suite und gibt ein kompaktes Ergebnis-Dict zurück.
@@ -148,9 +153,7 @@ def get_report(run_id: str) -> dict:
     """
     report_file = _find_report_file(run_id)
     if report_file is None:
-        raise FileNotFoundError(
-            f"Kein Report für run_id={run_id!r} in {REPORTS_DIR} gefunden."
-        )
+        raise FileNotFoundError(f"Kein Report für run_id={run_id!r} in {REPORTS_DIR} gefunden.")
     return json.loads(report_file.read_text(encoding="utf-8"))
 
 
@@ -201,10 +204,11 @@ def compare_runs(a: str, b: str) -> dict:
 # Einstiegspunkt
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     """Startet den MCP-HTTP-Server auf 0.0.0.0:8080."""
     port = int(os.environ.get("MCP_PORT", "8080"))
-    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)
+    mcp.run(transport="streamable-http", host="0.0.0.0", port=port)  # nosec B104 — intentional Docker bind
 
 
 if __name__ == "__main__":

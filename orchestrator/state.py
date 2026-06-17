@@ -7,7 +7,7 @@ so, dass ein Crash-Neustart genau dort weiterarbeiten kann.
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 # Standard-Pfad (im Container /app/state/STATE.md, lokal überschreibbar)
@@ -15,7 +15,7 @@ DEFAULT_STATE_PATH = Path(os.environ.get("STATE_PATH", "/app/state/STATE.md"))
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    return datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
 def load(path: Path = DEFAULT_STATE_PATH) -> dict:

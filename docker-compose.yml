@@ -3,8 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.prompter
-    ports:
-      - "8080:8080"
+    # KEIN Host-Port: der MCP-Server ist nur intern über das Compose-Netz
+    # (orchestrator -> prompter-mcp:8080) erreichbar. So gibt es keine offene
+    # Test-Trigger-Schnittstelle nach außen. Falls ein Host-Client doch zugreifen
+    # muss, NUR an Loopback binden: "127.0.0.1:8080:8080".
+    expose:
+      - "8080"
     volumes:
       - ./zukunftsbund-bottests:/app/zukunftsbund-bottests:ro
       - reports:/data/reports
@@ -21,6 +25,11 @@ services:
       - ./config:/app/config:rw
       - reports:/data/reports
       - state:/app/state
+      # SICHERHEIT: mountet die Host-Claude-Session (OAuth-Token) read-only in den
+      # Orchestrator — nötig für ORCHESTRATOR_ENGINE=claude ohne API-Key. Der
+      # Container hat KEINEN inbound-Port; bei mock-Engine wird das Token nicht
+      # genutzt. Für strengere Trennung später ein dediziertes Headless-Token statt
+      # der persönlichen Session verwenden.
       - ${HOME}/.claude:/root/.claude:ro
     env_file: .env
     networks:
@@ -35,7 +44,9 @@ services:
       context: .
       dockerfile: Dockerfile.admin
     ports:
-      - "8000:8000"
+      # NUR an Loopback — das Panel ist nicht aus dem Internet erreichbar.
+      # Zugriff vom Arbeitsplatz via SSH-Tunnel: ssh -L 8000:127.0.0.1:8000 server
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./config:/app/config:rw
       - reports:/data/reports:ro

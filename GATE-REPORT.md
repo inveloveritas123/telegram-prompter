@@ -13,7 +13,15 @@
 |---|---|---|---|
 | A2 | Akzeptanzkriterien testbar formuliert | **PASS** | `config/pipeline.yml` → `goals[].acceptance` als Tests |
 | B3 | Build/Imports kompilieren | **PASS** | alle Service-Module importierbar (`fastmcp`, `fastapi`, Framework) |
-| C1 | Unit-/Service-Tests grün | **PASS** | **64 Tests** grün: Framework 10 · prompter 4 · orchestrator 30 · admin 20 |
+| C1 | Unit-/Service-Tests grün | **PASS** | **68 Tests** grün: Framework 10 · prompter 4 · orchestrator 30 · admin 24 (inkl. 4 Auth-Tests) |
+| B1 | Lint (ruff) sauber | **PASS** | ruff: 13→0 Befunde |
+| B2 | Typecheck (mypy) sauber | **PASS** | mypy: 1→0 über admin/orchestrator/prompter |
+| D1 | SAST (bandit) ohne High/Medium | **PASS** | bandit: 4→0 (subprocess/bind dokumentiert via `# nosec`) |
+| F1 | Dependency-Pinning | **PASS** | alle direkten Deps auf `==` gepinnt |
+| SEC-1 | Admin-Panel authentifiziert (fail-closed) | **PASS** | HTTP-Basic `ADMIN_USER/PASSWORD`; ohne Config 503; Konstant-Zeit-Vergleich |
+| SEC-2 | Keine offenen Ports nach außen | **PASS** | admin nur `127.0.0.1:8000`; prompter-mcp nur intern (kein Host-Port) |
+| SEC-3 | SSRF-Riegel auf Verbindungstest | **PASS** | Schema-Allowlist + Metadata/Link-Local blockiert |
+| BUILD | Docker-Images bauen real | **PASS** | `docker compose build` ✓ — admin 272MB · orchestrator 431MB · prompter-mcp 362MB |
 | C-dry | Framework-Dry-Run grün | **PASS** | `runner.run --all --dry-run` → content-autopilot 2/2, kontakt-bot 3/3 |
 | D3 | Secret-Scan: kein Secret im Diff | **PASS** | Regex-Scan über py/yml/json/env — leer; `.env` git-ignoriert |
 | DoD-1 | `docker compose config` valide | **PASS** | drei Services, named volumes `reports`/`state` |
@@ -27,14 +35,19 @@
 Alle Pflicht-Gates des Profils `nacht-pipeline` sind aktiv PASS. Definition of Done
 aus `KONZEPT-Nacht-Pipeline.md` erfüllt.
 
-## Optionale Gates (beratend — nicht geprüft, Follow-up)
-Ehrlich als SKIP ausgewiesen, färben dieses Profil **nicht** rot:
-- B1 Lint (ruff), B2 Typecheck (mypy) — Dev-Toolchain noch nicht verdrahtet.
-- C2 Coverage-Schwelle — nicht gemessen.
-- D1 SAST (bandit/semgrep), D2 SCA (CVE-Scan der Deps) — nicht gelaufen.
-- F1 Dependency-Pinning — requirements nutzen `>=`-Ranges, noch nicht gepinnt.
+## Sicherheits-Härtung (neue Angriffsfläche geschlossen)
+Die Pipeline fügt zwei HTTP-Dienste + ein gemountetes Host-Token hinzu. Maßnahmen:
+- **Admin-Auth fail-closed** (SEC-1): ohne `ADMIN_USER`/`ADMIN_PASSWORD` keine Antwort (503).
+- **Loopback-Bindung** (SEC-2): admin nur `127.0.0.1`; prompter-mcp ohne Host-Port (nur Compose-Netz).
+- **SSRF-Riegel** (SEC-3) auf `/mcp/test`.
+- **Telegram-Riegel unverändert**: kein neuer Bypass — der MCP ruft nur das Framework, `TELEGRAM_ALLOWED_TEST_BOTS`/`HTTP_FORBIDDEN_HOSTS` gelten.
+- **Restrisiko dokumentiert**: `~/.claude` read-only im Orchestrator (kein inbound-Port); später dediziertes Headless-Token statt persönlicher Session.
+
+## Optionale Gates — verbleibend
+- C2 Coverage-Schwelle — noch nicht gemessen (Tests vorhanden, Schwelle nicht erzwungen).
+- D2 SCA (CVE-Scan der Deps) — nicht gelaufen.
 - **Echte Engine** (`ORCHESTRATOR_ENGINE=claude`) ungetestet (bewusst — kein API-Key/Kosten im Build).
 
 ## Nicht im Scope dieses Builds
-Echte Telethon-Session (Sprint 1), n8n-MCP-Live-Anbindung (Sprint 2), Image-Build mit
-`docker compose build` (lokal nicht ausgeführt — nur `config` validiert).
+Echte Telethon-Session (Sprint 1), n8n-MCP-Live-Anbindung (Sprint 2), End-to-End-Lauf der
+hochgefahrenen Container (`docker compose up` mit echten Targets).

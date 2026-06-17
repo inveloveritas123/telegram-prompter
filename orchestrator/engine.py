@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
+import subprocess  # nosec B404 — subprocess is required to call the claude CLI
 from dataclasses import dataclass, field
 
 
@@ -25,10 +25,10 @@ class BuildResult:
     """Ergebnis eines Bau-Schritts."""
 
     success: bool
-    summary: str                      # Kurzbeschreibung was gebaut/geändert wurde
+    summary: str  # Kurzbeschreibung was gebaut/geändert wurde
     changed_files: list[str] = field(default_factory=list)
-    promise: bool = False             # Hat der Worker das completion-promise ausgegeben?
-    raw_output: str = ""              # Rohausgabe des Workers (für Debugging)
+    promise: bool = False  # Hat der Worker das completion-promise ausgegeben?
+    raw_output: str = ""  # Rohausgabe des Workers (für Debugging)
 
 
 class AgentEngine:
@@ -80,7 +80,7 @@ class ClaudeCodeEngine(AgentEngine):
             "Wenn fertig: gib exakt <promise>GRUEN</promise> aus."
         )
         try:
-            proc = subprocess.run(
+            proc = subprocess.run(  # nosec B603 B607 — fixed arg list, no shell=True, no user-controlled path
                 ["claude", "-p", task, "--output-format", "json"],
                 capture_output=True,
                 text=True,
@@ -89,7 +89,10 @@ class ClaudeCodeEngine(AgentEngine):
         except FileNotFoundError:
             return BuildResult(
                 success=False,
-                summary="claude CLI nicht gefunden — ORCHESTRATOR_ENGINE=claude erfordert claude im PATH.",
+                summary=(
+                    "claude CLI nicht gefunden — "
+                    "ORCHESTRATOR_ENGINE=claude erfordert claude im PATH."
+                ),
                 raw_output="",
             )
         except subprocess.TimeoutExpired:
@@ -114,7 +117,7 @@ class ClaudeCodeEngine(AgentEngine):
         return BuildResult(
             success=success,
             summary=summary,
-            changed_files=[],   # claude CLI gibt keine Dateiliste zurück
+            changed_files=[],  # claude CLI gibt keine Dateiliste zurück
             promise=promise,
             raw_output=raw,
         )
@@ -127,6 +130,4 @@ def create_engine(dry_run: bool = False) -> AgentEngine:
         return MockEngine()
     if engine_name == "claude":
         return ClaudeCodeEngine()
-    raise ValueError(
-        f"Unbekannte Engine: {engine_name!r}. Gültig: mock | claude"
-    )
+    raise ValueError(f"Unbekannte Engine: {engine_name!r}. Gültig: mock | claude")

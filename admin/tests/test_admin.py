@@ -3,12 +3,13 @@ pytest-Tests fuer das Admin-Panel.
 Prueft: alle vier Bereiche laden (GET 200), MCP-hinzufuegen schreibt valides mcp.json,
 Ziel-speichern schreibt valides pipeline.yml.
 """
+
+import base64
 import json
 import os
 import tempfile
 from pathlib import Path
 
-import pytest
 import yaml
 from fastapi.testclient import TestClient
 
@@ -18,6 +19,16 @@ os.environ["CONFIG_DIR"] = str(Path(_TMP) / "config")
 os.environ["REPORTS_DIR"] = str(Path(_TMP) / "reports")
 os.environ["STATE_DIR"] = str(Path(_TMP) / "state")
 
+# Admin-Auth-Zugangsdaten fuer die Tests setzen (fail-closed: ohne sie -> 503).
+os.environ["ADMIN_USER"] = "tester"
+os.environ["ADMIN_PASSWORD"] = "test-pw-123"
+
+
+def _basic(user: str, pw: str) -> dict:
+    tok = base64.b64encode(f"{user}:{pw}".encode()).decode()
+    return {"Authorization": f"Basic {tok}"}
+
+
 # Verzeichnisse anlegen
 for _d in ["config", "reports", "state"]:
     (Path(_TMP) / _d).mkdir(parents=True, exist_ok=True)
@@ -25,7 +36,44 @@ for _d in ["config", "reports", "state"]:
 # Admin-App nach dem Setzen der Env-Variablen importieren
 from admin.main import app  # noqa: E402
 
+# TestClient mit gueltiger Basic-Auth — alle Bereichs-Tests laufen authentifiziert.
 client = TestClient(app, raise_server_exceptions=True)
+client.headers.update(_basic("tester", "test-pw-123"))
+
+
+# ─────────────────────── Bereich 0: Authentifizierung ───────────────────────
+
+
+class TestAuth:
+    """Das Panel ist fail-closed: ohne/mit falschen Zugangsdaten kein Zugriff."""
+
+    def test_ohne_credentials_401(self):
+        """Ein Client ohne Basic-Auth wird abgewiesen."""
+        anon = TestClient(app, raise_server_exceptions=True)
+        resp = anon.get("/")
+        assert resp.status_code == 401
+
+    def test_falsche_credentials_401(self):
+        """Falsches Passwort -> 401."""
+        bad = TestClient(app, raise_server_exceptions=True)
+        bad.headers.update(_basic("tester", "falsch"))
+        resp = bad.get("/")
+        assert resp.status_code == 401
+
+    def test_unkonfiguriert_503(self, monkeypatch):
+        """Ohne gesetzte ADMIN_USER/ADMIN_PASSWORD bleibt das Panel zu (503)."""
+        monkeypatch.delenv("ADMIN_USER", raising=False)
+        monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
+        c = TestClient(app, raise_server_exceptions=True)
+        c.headers.update(_basic("x", "y"))  # Header vorhanden -> require_auth prüft Env -> 503
+        resp = c.get("/")
+        assert resp.status_code == 503
+
+    def test_api_route_braucht_auth(self):
+        """Auch JSON-APIs sind geschuetzt."""
+        anon = TestClient(app, raise_server_exceptions=True)
+        assert anon.get("/api/status").status_code == 401
+
 
 CONFIG_DIR = Path(os.environ["CONFIG_DIR"])
 REPORTS_DIR = Path(os.environ["REPORTS_DIR"])
@@ -33,6 +81,7 @@ STATE_DIR = Path(os.environ["STATE_DIR"])
 
 
 # ─────────────────────── Bereich 1: MCP-Server ───────────────────────
+
 
 class TestMcpBereich:
     """MCP-Server-Bereich laedt und MCP-Hinzufuegen schreibt valides mcp.json."""
@@ -105,6 +154,7 @@ class TestMcpBereich:
 
 
 # ─────────────────────── Bereich 2: Ziele & Zeitplan ───────────────────────
+
 
 class TestZieleBereich:
     """Ziele-Bereich laedt und Speichern schreibt valides pipeline.yml."""
@@ -182,7 +232,9 @@ class TestZieleBereich:
             follow_redirects=True,
         )
         # Entfernen
-        resp = client.post("/pipeline/goal/remove", data={"goal_id": "temp-ziel"}, follow_redirects=True)
+        resp = client.post(
+            "/pipeline/goal/remove", data={"goal_id": "temp-ziel"}, follow_redirects=True
+        )
         assert resp.status_code == 200
 
         data = yaml.safe_load((CONFIG_DIR / "pipeline.yml").read_text(encoding="utf-8"))
@@ -200,6 +252,7 @@ class TestZieleBereich:
 
 
 # ─────────────────────── Bereich 3: Secrets ───────────────────────
+
 
 class TestSecretsBereich:
     """Secrets-Bereich laedt, zeigt keine Klartext-Werte."""
@@ -232,6 +285,7 @@ class TestSecretsBereich:
 
 
 # ─────────────────────── Bereich 4: Status ───────────────────────
+
 
 class TestStatusBereich:
     """Status-Bereich laedt und zeigt Reports + STATE."""

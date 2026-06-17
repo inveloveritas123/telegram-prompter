@@ -1,0 +1,3 @@
+[bandit]
+exclude = .venv,zukunftsbund-bottests,admin/tests,orchestrator/tests,prompter/tests
+skips = B101,B105

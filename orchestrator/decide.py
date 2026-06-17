@@ -26,7 +26,8 @@ def decide(
     if prev_red >= 0 and cur_red > prev_red:
         return (
             "halt",
-            f"Drift-Pausegate: rote Fälle gestiegen ({prev_red} → {cur_red}) — anhalten, Ursache nennen",
+            f"Drift-Pausegate: rote Fälle gestiegen ({prev_red} → {cur_red})"
+            " — anhalten, Ursache nennen",
         )
     # 2. Fertig
     if gates_ok and promise:
