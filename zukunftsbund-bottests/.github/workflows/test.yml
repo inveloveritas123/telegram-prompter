@@ -1,0 +1,43 @@
+name: bottests
+
+on:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "Suite gezielt fahren (leer = alle HTTP-Suiten)"
+        required: false
+
+jobs:
+  # Schnelle, sichere Checks in JEDER CI: Unit-Tests + HTTP-Suiten im Dry-Run.
+  # Der Telegram-MTProto-Teil läuft NICHT hier (echte Session gehört nicht in CI),
+  # sondern on-demand über den self-hosted Runner (siehe Job 'telegram' unten).
+  http-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Unit-Tests
+        run: pytest -q
+      - name: HTTP-Suiten (Dry-Run)
+        run: python -m runner.run --suite content-autopilot --dry-run --json
+
+  # Vollständiger Telegram-Lauf auf eigener Infrastruktur (Netcup).
+  # Hält die Test-Session sicher; nur manuell oder nach Deploy ausgelöst.
+  telegram:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: [self-hosted, netcup, telegram-test]
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -r requirements.txt
+      - name: Kontakt-Bot-Suite (echt)
+        env:
+          TELEGRAM_API_ID: ${{ secrets.TELEGRAM_API_ID }}
+          TELEGRAM_API_HASH: ${{ secrets.TELEGRAM_API_HASH }}
+          TELEGRAM_TEST_SESSION: ${{ secrets.TELEGRAM_TEST_SESSION }}
+          TELEGRAM_ALLOWED_TEST_BOTS: ${{ vars.TELEGRAM_ALLOWED_TEST_BOTS }}
+          TEST_PASSWORT: ${{ secrets.TEST_PASSWORT }}
+        run: python -m runner.run --suite kontakt-bot --json

@@ -1,0 +1,36 @@
+# Dockerfile.prompter — prompter-mcp Service
+# Schlankes Python-Image; Secrets NICHT ins Image (via .env / Docker-Secrets).
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Framework-Abhängigkeiten installieren
+COPY zukunftsbund-bottests/requirements.txt /app/framework-requirements.txt
+RUN pip install --no-cache-dir -r /app/framework-requirements.txt
+
+# MCP-Server-Abhängigkeiten installieren
+COPY prompter/requirements.txt /app/prompter-requirements.txt
+RUN pip install --no-cache-dir -r /app/prompter-requirements.txt
+
+# Framework-Code kopieren (read-only im Betrieb — Volume überschreibt in docker-compose)
+COPY zukunftsbund-bottests/ /app/zukunftsbund-bottests/
+
+# MCP-Server-Code kopieren
+COPY prompter/ /app/prompter/
+
+# Python-Pfad: Framework und App-Root erreichbar machen
+ENV PYTHONPATH="/app/zukunftsbund-bottests:/app"
+
+# Konfigurierbare Verzeichnisse
+ENV SUITES_DIR="/app/zukunftsbund-bottests/suites"
+ENV REPORTS_DIR="/data/reports"
+ENV MCP_PORT="8080"
+
+# Reports-Verzeichnis anlegen (wird im Betrieb durch Volume gemountet)
+RUN mkdir -p /data/reports
+
+EXPOSE 8080
+
+# MCP-HTTP-Server starten
+CMD ["python", "-m", "prompter.server"]

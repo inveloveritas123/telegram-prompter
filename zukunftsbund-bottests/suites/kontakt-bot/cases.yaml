@@ -1,0 +1,66 @@
+suite: kontakt-bot
+target:
+  adapter: telegram
+  bot: "@zkb_kontakt_bot"
+  # Im Dry-Run liefert der Adapter diese Mock-Antworten je Testfall der Reihe
+  # nach zurück. So läuft die komplette Maschinerie ohne echte Telegram-Session
+  # — und gezielte Re-Tests (--only) bleiben verlässlich, weil jeder Fall seine
+  # eigene Antwortfolge hat.
+  mock_replies:
+    T1-neuer-kontakt-foto:
+      - "Foto erkannt. Bitte Rueckseite senden."
+      - "BNI-Kontakt? (1=ja 2=nein)"
+      - "Typ waehlen:"
+      - "Kontext eingeben:"
+      - "Freigabe? (1=ja)"
+      - "Neu gespeichert: #42"
+    T7-album-vorder-rueck:
+      - "Beide Seiten zusammengefuehrt."
+    T12-passwort-riegel:
+      - "Bitte Passwort eingeben."
+      - "Zugriff verweigert."
+      - "Freigeschaltet."
+
+setup:
+  reset_static_data: true   # via n8n-API: Sessions/Auth leeren vor Lauf
+  sheet: TEST               # immer gegen Test-Sheet, nie Produktion
+
+cases:
+  - id: T1-neuer-kontakt-foto
+    desc: "Einzelfoto, kompletter Dialog, Freigabe"
+    tags: [ocr, dialog, foto]
+    steps:
+      - send_photo: fixtures/tilia_vorderseite.jpg
+      - expect: { contains: "erkannt" }
+      - send: "weiter"
+      - expect: { contains: "BNI-Kontakt" }
+      - send: "2"
+      - expect: { contains: "Typ" }
+      - send: "1"
+      - expect: { contains: "Kontext" }
+      - send: "Messe-Kontakt"
+      - send: "1"
+      - expect: { regex: "Neu gespeichert: #\\d+" }
+
+  - id: T7-album-vorder-rueck
+    desc: "Beide Seiten als Album, Merge ohne Konflikt"
+    tags: [album, foto, merge]
+    steps:
+      - send_album: [fixtures/tilia_vorder.jpg, fixtures/tilia_rueck.jpg]
+      - wait: 4s
+      - expect: { contains: "zusammengefuehrt" }
+      - expect: { not_contains: "(kein Name)" }
+
+  - id: T12-passwort-riegel
+    desc: "Frische ID muss Passwort eingeben"
+    tags: [auth, sicherheit]
+    setup: { bump_passwort_version: true }
+    steps:
+      - send: "hallo"
+      - expect: { contains: "Passwort" }
+      - send: "FALSCH"
+      - expect: { contains: "verweigert" }
+      # Secret kommt aus der Umgebung, nie im Klartext in der YAML:
+      # - send: "{{ env.TEST_PASSWORT }}"
+      - send: "geheim"
+      - expect: { contains: "Freigeschaltet" }

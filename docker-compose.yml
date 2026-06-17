@@ -1,0 +1,53 @@
+services:
+  prompter-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile.prompter
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./zukunftsbund-bottests:/app/zukunftsbund-bottests:ro
+      - reports:/data/reports
+    env_file: .env
+    networks:
+      - telegram-prompter-net
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: Dockerfile.orchestrator
+    volumes:
+      - ./zukunftsbund-bottests:/app/zukunftsbund-bottests:rw
+      - ./config:/app/config:rw
+      - reports:/data/reports
+      - state:/app/state
+      - ${HOME}/.claude:/root/.claude:ro
+    env_file: .env
+    networks:
+      - telegram-prompter-net
+    # Kein Standardbefehl — statt `docker compose up` nutze:
+    # docker compose run --rm orchestrator tick
+    # Für Dry-Run: docker compose run --rm orchestrator --dry-run
+    command: ["sleep", "infinity"]
+
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.admin
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config:/app/config:rw
+      - reports:/data/reports:ro
+      - state:/app/state:ro
+    env_file: .env
+    networks:
+      - telegram-prompter-net
+
+volumes:
+  reports:
+  state:
+
+networks:
+  telegram-prompter-net:
+    driver: bridge

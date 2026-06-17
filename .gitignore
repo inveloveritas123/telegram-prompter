@@ -1,0 +1,72 @@
+# Umgebungsvariablen und Secrets
+.env
+.env.local
+.env.*.local
+
+# Telegram Session-Dateien
+*.session
+*.session-journal
+
+# Python Artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE und Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.hypothesis/
+
+# Reports und State (außer .gitkeep)
+reports/*.json
+state/
+app/          # lokale Tick-Artefakte (Container nutzt /app/state)
+!reports/.gitkeep
+!state/.gitkeep
+
+# Docker/Compose lokale Daten
+.docker/
+docker-compose.override.yml
+
+# Logs
+*.log
+logs/
+
+# Test-Artefakte
+**/_tmp_reports/

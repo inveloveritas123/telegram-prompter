@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin · telegram-prompter · ZUKUNFTSBUND</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/htmx.org@1.9.12" crossorigin="anonymous"></script>
+<style>
+  :root{
+    --blue:#1a73e8; --blue-d:#1557b0; --blue-tint:#e8f0fe;
+    --green:#34a853; --green-tint:#e6f4ea;
+    --yellow:#f9ab00; --yellow-tint:#fef7e0;
+    --red:#ea4335; --red-tint:#fce8e6;
+    --ink:#202124; --ink2:#5f6368; --line:#dadce0;
+    --surface:#ffffff; --bg:#f8f9fa;
+    --r:12px; --r-lg:20px;
+    --e1:0 1px 2px rgba(60,64,67,.30),0 1px 3px 1px rgba(60,64,67,.15);
+    --e2:0 1px 2px rgba(60,64,67,.30),0 2px 6px 2px rgba(60,64,67,.15);
+    --e3:0 1px 3px rgba(60,64,67,.30),0 4px 8px 3px rgba(60,64,67,.15);
+    --font:'Roboto','Segoe UI',system-ui,Arial,sans-serif;
+    --mono:'Roboto Mono',ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--font);color:var(--ink);background:var(--bg);line-height:1.6;-webkit-font-smoothing:antialiased;min-height:100vh;}
+  a{color:var(--blue);text-decoration:none;}
+
+  /* App-Leiste */
+  .bar{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:14px;padding:12px 28px;box-shadow:var(--e1);}
+  .logo{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;flex-shrink:0;
+    background:conic-gradient(from 90deg,var(--blue),var(--green),var(--yellow),var(--red),var(--blue));}
+  .logo span{width:14px;height:14px;background:#fff;border-radius:4px;}
+  .bar h1{font-size:18px;font-weight:500;letter-spacing:.2px;}
+  .bar .sub{color:var(--ink2);font-size:13px;}
+  .grow{flex:1;}
+  .chip{font-size:12px;font-weight:500;padding:6px 12px;border-radius:999px;border:1px solid var(--line);color:var(--ink2);background:#fff;}
+  .chip.staging{background:var(--yellow-tint);color:#7d5500;border-color:#f9ab00;font-weight:700;letter-spacing:.3px;}
+
+  /* Layout */
+  .layout{display:grid;grid-template-columns:220px 1fr;min-height:calc(100vh - 60px);}
+
+  /* Sidebar-Navigation */
+  .sidebar{background:var(--surface);border-right:1px solid var(--line);padding:16px 12px;}
+  .nav-label{font-size:11px;font-weight:700;color:var(--ink2);letter-spacing:1px;text-transform:uppercase;padding:8px 12px 4px;}
+  .nav a{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;
+    font-size:14px;color:var(--ink2);text-decoration:none;margin-bottom:2px;transition:background .15s,color .15s;}
+  .nav a:hover{background:var(--bg);color:var(--ink);}
+  .nav a.active{background:var(--blue-tint);color:var(--blue);font-weight:500;}
+  .nav a svg{width:18px;height:18px;flex-shrink:0;}
+
+  /* Haupt-Inhalt */
+  .main{padding:32px 36px;max-width:900px;}
+  .section-title{font-size:22px;font-weight:700;margin-bottom:4px;}
+  .section-sub{color:var(--ink2);font-size:14px;margin-bottom:24px;}
+
+  /* Karten */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:20px;box-shadow:var(--e1);margin-bottom:16px;}
+  .card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .card-title{font-size:15px;font-weight:600;}
+
+  /* Zeilen (MCP-Liste, Reports) */
+  .row{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;
+    border:1px solid var(--line);border-radius:10px;margin-bottom:8px;background:#fff;gap:12px;}
+  .row-info{flex:1;min-width:0;}
+  .row-name{font-weight:600;font-size:14.5px;}
+  .row-meta{font-size:12.5px;color:var(--ink2);font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .row-actions{display:flex;gap:8px;flex-shrink:0;}
+
+  /* Formulare */
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12.5px;color:var(--ink2);margin-bottom:5px;font-weight:500;}
+  .field input,.field textarea,.field select{
+    width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;
+    font:inherit;font-size:14px;background:#fff;transition:border-color .15s,box-shadow .15s;}
+  .field input:focus,.field textarea:focus,.field select:focus{
+    outline:none;border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-tint);}
+  .field input[type=password]{font-family:var(--mono);letter-spacing:2px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;}
+
+  /* Buttons */
+  .btn{display:inline-flex;align-items:center;gap:7px;border:0;background:var(--blue);color:#fff;
+    font:inherit;font-weight:500;font-size:13.5px;padding:9px 16px;border-radius:8px;
+    cursor:pointer;box-shadow:var(--e1);transition:background .15s,box-shadow .15s;text-decoration:none;}
+  .btn:hover{background:var(--blue-d);box-shadow:var(--e2);}
+  .btn.ghost{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none;}
+  .btn.ghost:hover{background:var(--bg);}
+  .btn.danger{background:var(--red);}
+  .btn.danger:hover{background:#c5221f;}
+  .btn.green{background:var(--green);}
+  .btn.sm{padding:6px 11px;font-size:12.5px;}
+
+  /* Pills / Badges */
+  .pill{font-size:11.5px;font-weight:600;padding:3px 10px;border-radius:999px;white-space:nowrap;}
+  .pill.pass{background:var(--green-tint);color:var(--green);}
+  .pill.fail{background:var(--red-tint);color:var(--red);}
+  .pill.staging{background:var(--yellow-tint);color:#7d5500;}
+  .pill.set{background:var(--green-tint);color:var(--green);}
+  .pill.unset{background:var(--red-tint);color:var(--red);}
+
+  /* Staging-Marker Banner */
+  .staging-banner{
+    background:var(--yellow-tint);border:1.5px solid var(--yellow);border-radius:10px;
+    padding:12px 18px;margin-bottom:22px;display:flex;align-items:center;gap:12px;
+    font-size:14px;font-weight:500;color:#7d5500;}
+  .staging-dot{width:10px;height:10px;border-radius:50%;background:var(--yellow);
+    box-shadow:0 0 0 3px rgba(249,171,0,.25);flex-shrink:0;}
+
+  /* Info-Kasten */
+  .info{background:var(--blue-tint);border:1px solid #c6dafc;border-radius:var(--r);
+    padding:14px 18px;color:#174ea6;font-size:14px;margin-bottom:16px;}
+  .warn{background:var(--yellow-tint);border:1px solid #f9ab00;border-radius:var(--r);
+    padding:14px 18px;color:#7d5500;font-size:14px;margin-bottom:16px;}
+
+  /* STATE-Textblock */
+  .state-block{background:#202124;color:#e8eaed;border-radius:var(--r);padding:18px 20px;
+    font-family:var(--mono);font-size:13px;line-height:1.7;overflow:auto;max-height:320px;
+    white-space:pre-wrap;box-shadow:var(--e2);}
+
+  /* Trennlinie */
+  hr{border:none;border-top:1px solid var(--line);margin:20px 0;}
+
+  /* Formular-Akkordeon (zum Hinzufügen) */
+  .add-form{background:var(--bg);border:1px dashed var(--line);border-radius:var(--r);
+    padding:18px;margin-top:12px;}
+  .add-form h4{font-size:14px;font-weight:600;margin-bottom:14px;color:var(--ink2);}
+
+  /* Geheimnis-Zeilen */
+  .secret-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
+    border:1px solid var(--line);border-radius:8px;margin-bottom:6px;background:#fff;gap:12px;}
+  .secret-key{font-family:var(--mono);font-size:13.5px;font-weight:500;flex:1;}
+  .secret-mask{font-family:var(--mono);font-size:13px;color:var(--ink2);letter-spacing:2px;}
+
+  /* Test-Ergebnis-Inline (HTMX) */
+  #test-result{margin-top:10px;font-size:13.5px;}
+
+  /* Responsive */
+  @media(max-width:720px){
+    .layout{grid-template-columns:1fr;}
+    .sidebar{border-right:none;border-bottom:1px solid var(--line);}
+    .main{padding:20px;}
+    .grid2,.grid3{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- App-Leiste -->
+<header class="bar">
+  <div class="logo"><span></span></div>
+  <div>
+    <h1>telegram-prompter</h1>
+    <div class="sub">ZUKUNFTSBUND &middot; Admin-Panel</div>
+  </div>
+  <div class="grow"></div>
+  <span class="chip staging">&#9888; STAGING</span>
+  <span class="chip">Port 8000</span>
+</header>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="nav-label">Navigation</div>
+    <div class="nav">
+      <a href="/?tab=mcp" class="{{ 'active' if active == 'mcp' else '' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M9 3v18"/></svg>
+        MCP-Server
+      </a>
+      <a href="/?tab=goals" class="{{ 'active' if active == 'goals' else '' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg>
+        Ziele &amp; Zeitplan
+      </a>
+      <a href="/?tab=secrets" class="{{ 'active' if active == 'secrets' else '' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        Secrets
+      </a>
+      <a href="/?tab=status" class="{{ 'active' if active == 'status' else '' }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
+        Status
+      </a>
+    </div>
+  </nav>
+
+  <!-- Haupt-Inhalt -->
+  <main class="main">
+
+    <!-- ══════════════════════ MCP-SERVER ══════════════════════ -->
+    {% if active == 'mcp' %}
+    <div class="staging-banner">
+      <div class="staging-dot"></div>
+      Staging-Modus aktiv &mdash; alle MCPs werden nur gegen Test-Targets gefahren.
+    </div>
+
+    <div class="section-title">MCP-Server verwalten</div>
+    <div class="section-sub">Registrierte HTTP-MCP-Server &mdash; schreibt <code>config/mcp.json</code>.</div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Registrierte Server ({{ mcp_servers | length }})</div>
+      </div>
+
+      {% if mcp_servers %}
+        {% for name, srv in mcp_servers.items() %}
+        <div class="row">
+          <div class="row-info">
+            <div class="row-name">{{ name }}</div>
+            <div class="row-meta">{{ srv.url }}</div>
+          </div>
+          <div class="row-actions">
+            <!-- Verbindung testen (HTMX POST) -->
+            <form method="post" action="/mcp/test" style="display:inline"
+                  hx-post="/mcp/test" hx-target="#test-result-{{ loop.index }}" hx-swap="innerHTML">
+              <input type="hidden" name="name" value="{{ name }}">
+              <button type="submit" class="btn ghost sm">Verbindung testen</button>
+            </form>
+            <!-- Entfernen -->
+            <form method="post" action="/mcp/remove" style="display:inline">
+              <input type="hidden" name="name" value="{{ name }}">
+              <button type="submit" class="btn danger sm" onclick="return confirm('{{ name }} entfernen?')">Entfernen</button>
+            </form>
+          </div>
+        </div>
+        <div id="test-result-{{ loop.index }}" style="font-size:13px;margin-bottom:8px;color:var(--ink2);padding-left:14px;"></div>
+        {% endfor %}
+      {% else %}
+        <p style="color:var(--ink2);font-size:14px;">Noch keine MCP-Server registriert.</p>
+      {% endif %}
+
+      <hr>
+      <div class="add-form">
+        <h4>Neuen MCP-Server hinzuf&uuml;gen</h4>
+        <form method="post" action="/mcp/add">
+          <div class="grid2">
+            <div class="field">
+              <label>Name (eindeutig)</label>
+              <input type="text" name="name" placeholder="z.B. n8n-mcp" required>
+            </div>
+            <div class="field">
+              <label>URL</label>
+              <input type="url" name="url" placeholder="https://&hellip;/mcp" required>
+            </div>
+          </div>
+          <div class="field">
+            <label>API-Key (optional &mdash; wird als Bearer-Token gesetzt)</label>
+            <input type="password" name="api_key" placeholder="sk-&hellip; oder leer lassen">
+          </div>
+          <button type="submit" class="btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            MCP hinzuf&uuml;gen
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ══════════════════════ ZIELE & ZEITPLAN ══════════════════════ -->
+    {% if active == 'goals' %}
+    <div class="staging-banner">
+      <div class="staging-dot"></div>
+      Staging-Modus aktiv &mdash; safety.staging_only ist fest auf <strong>true</strong> gesetzt.
+    </div>
+
+    <div class="section-title">Ziele &amp; Zeitplan</div>
+    <div class="section-sub">Zielstellungen als Tests formuliert &mdash; schreibt <code>config/pipeline.yml</code>.</div>
+
+    <!-- Aktive Ziele -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Zielstellungen ({{ pipeline.goals | length }})</div>
+      </div>
+      {% if pipeline.goals %}
+        {% for goal in pipeline.goals %}
+        <div class="row">
+          <div class="row-info">
+            <div class="row-name">{{ goal.id }}</div>
+            <div class="row-meta">Suite: {{ goal.suite }} &nbsp;|&nbsp; {{ goal.acceptance }}
+              {% if goal.tags %} &nbsp;&middot;&nbsp; Tags: {{ goal.tags | join(', ') }}{% endif %}
+            </div>
+          </div>
+          <div class="row-actions">
+            <form method="post" action="/pipeline/goal/remove">
+              <input type="hidden" name="goal_id" value="{{ goal.id }}">
+              <button type="submit" class="btn danger sm" onclick="return confirm('Ziel {{ goal.id }} entfernen?')">Entfernen</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p style="color:var(--ink2);font-size:14px;">Noch keine Ziele definiert.</p>
+      {% endif %}
+
+      <hr>
+      <div class="add-form">
+        <h4>Neues Ziel hinzuf&uuml;gen</h4>
+        <form method="post" action="/pipeline/goal/add">
+          <div class="grid2">
+            <div class="field">
+              <label>Ziel-ID (eindeutig)</label>
+              <input type="text" name="goal_id" placeholder="z.B. album-merge-fix" required>
+            </div>
+            <div class="field">
+              <label>Suite</label>
+              <input type="text" name="suite" placeholder="z.B. kontakt-bot" required>
+            </div>
+          </div>
+          <div class="field">
+            <label>Akzeptanzkriterium (als Testbeschreibung formuliert)</label>
+            <input type="text" name="acceptance" placeholder="Suite kontakt-bot inkl. T7 vollst&auml;ndig gr&uuml;n" required>
+          </div>
+          <div class="field">
+            <label>Tags (kommagetrennt, optional)</label>
+            <input type="text" name="tags" placeholder="album, merge">
+          </div>
+          <button type="submit" class="btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            Ziel hinzuf&uuml;gen
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- Zeitplan & Budget -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Zeitplan &amp; Budget</div>
+      </div>
+      <form method="post" action="/pipeline/save">
+        <input type="hidden" name="goals_json" value="{{ pipeline.goals | tojson }}">
+        <div class="grid2">
+          <div class="field">
+            <label>Nacht-Fenster</label>
+            <input type="text" name="window" value="{{ pipeline.schedule.window }}" placeholder="02:00-06:00">
+          </div>
+          <div class="field">
+            <label>Cadence</label>
+            <select name="cadence">
+              <option value="nightly" {{ 'selected' if pipeline.schedule.cadence == 'nightly' else '' }}>nightly</option>
+              <option value="manual" {{ 'selected' if pipeline.schedule.cadence == 'manual' else '' }}>manual</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid3">
+          <div class="field">
+            <label>Max. Iterationen</label>
+            <input type="number" name="max_iterations" value="{{ pipeline.budget.max_iterations }}" min="1" max="50">
+          </div>
+          <div class="field">
+            <label>Zeit-Budget (Minuten)</label>
+            <input type="number" name="time_minutes" value="{{ pipeline.budget.time_minutes }}" min="10">
+          </div>
+          <div class="field">
+            <label>Kosten-Cap (&euro;/Lauf)</label>
+            <input type="number" name="cost_cap" value="{{ pipeline.budget.cost_cap }}" min="0.5" step="0.5">
+          </div>
+        </div>
+        <div class="field" style="max-width:200px;">
+          <label>Flaky-Retries</label>
+          <input type="number" name="flaky_retries" value="{{ pipeline.flaky_retries }}" min="0" max="5">
+        </div>
+        <button type="submit" class="btn">Plan speichern</button>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- ══════════════════════ SECRETS ══════════════════════ -->
+    {% if active == 'secrets' %}
+    <div class="section-title">Secrets</div>
+    <div class="section-sub">Maskierte &Uuml;bersicht &mdash; Werte werden <strong>nie</strong> im Klartext angezeigt.</div>
+
+    <div class="warn">
+      <strong>Wichtiger Hinweis:</strong> Secrets werden ausschlie&szlig;lich &uuml;ber <code>.env</code> / Docker-Secrets gesetzt.
+      &Auml;nderungen hier werden <em>nicht</em> persistent gespeichert. Bearbeite die <code>.env</code>-Datei auf dem Server
+      und starte den Container neu.
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Bekannte Secrets ({{ secrets | length }})</div>
+      </div>
+
+      {% for s in secrets %}
+      <div class="secret-row">
+        <div class="secret-key">{{ s.key }}</div>
+        <div class="secret-mask">{{ s.masked if s.masked else '(nicht gesetzt)' }}</div>
+        <span class="pill {{ 'set' if s.set else 'unset' }}">{{ 'gesetzt' if s.set else 'fehlt' }}</span>
+      </div>
+      {% endfor %}
+
+      <div class="info" style="margin-top:16px;">
+        <strong>Wie Secrets setzen?</strong><br>
+        Trage die Werte in <code>.env</code> im Repo-Wurzelverzeichnis ein (Vorlage: <code>.env.example</code>)
+        und starte <code>docker compose up -d</code> neu. Secrets gelangen so &uuml;ber Umgebungsvariablen
+        in die Container &mdash; niemals ins Image oder in Git.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px;">Staging-Riegel</div>
+      <div class="row">
+        <div class="row-info">
+          <div class="row-name">TELEGRAM_ALLOWED_TEST_BOTS</div>
+          <div class="row-meta">Nur Test-Bot erlaubt &mdash; kein Zugriff auf Produktions-Bot</div>
+        </div>
+        <span class="pill staging">Staging</span>
+      </div>
+      <div class="row">
+        <div class="row-info">
+          <div class="row-name">HTTP_FORBIDDEN_HOSTS</div>
+          <div class="row-meta">Produtions-Endpoints gesperrt</div>
+        </div>
+        <span class="pill staging">Staging</span>
+      </div>
+      <div class="row">
+        <div class="row-info">
+          <div class="row-name">safety.staging_only</div>
+          <div class="row-meta">In pipeline.yml fest auf <code>true</code> &mdash; nicht &auml;nderbar &uuml;ber UI</div>
+        </div>
+        <span class="pill pass">gesperrt</span>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ══════════════════════ STATUS ══════════════════════ -->
+    {% if active == 'status' %}
+    <div class="staging-banner">
+      <div class="staging-dot"></div>
+      <strong>Staging-Targets aktiv</strong> &mdash; Alle L&auml;ufe gegen Test-Bot &amp; Staging-Sheet. Kein Produktions-Zugriff.
+    </div>
+
+    <div class="section-title">Status &amp; letzte L&auml;ufe</div>
+    <div class="section-sub">Aus <code>{{ reports_dir }}</code> &mdash; maximal 20 neueste Berichte.</div>
+
+    <!-- Letzte Läufe -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Letzte L&auml;ufe ({{ reports | length }})</div>
+        <a href="/api/status" class="btn ghost sm" target="_blank">JSON-API</a>
+      </div>
+
+      {% if reports %}
+        {% for r in reports %}
+        <div class="row">
+          <div class="row-info">
+            <div class="row-name">
+              {{ r.suite }}
+              <span class="pill staging" style="margin-left:6px;">staging</span>
+            </div>
+            <div class="row-meta">
+              run_id: {{ r.run_id }}
+              &nbsp;&middot;&nbsp;
+              {{ r.started_at | default('?') }}
+              &nbsp;&middot;&nbsp;
+              {{ r.passed | default(0) }}/{{ r.total | default(0) }} Tests
+              {% if r.pr_url is defined and r.pr_url %}
+              &nbsp;&middot;&nbsp; <a href="{{ r.pr_url }}" target="_blank">PR &rarr;</a>
+              {% endif %}
+            </div>
+          </div>
+          <span class="pill {{ 'pass' if r.all_green else 'fail' }}">
+            {{ 'gr&uuml;n' if r.all_green else 'rot' }}
+          </span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <p style="color:var(--ink2);font-size:14px;">Noch keine Reports vorhanden. Starte einen Lauf &uuml;ber den Orchestrator.</p>
+      {% endif %}
+    </div>
+
+    <!-- STATE.md -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Orchestrator-STATE (<code>STATE.md</code>)</div>
+      </div>
+      <div class="state-block">{{ state_text }}</div>
+    </div>
+    {% endif %}
+
+  </main>
+</div>
+
+<script>
+// Tab-Navigation: ?tab=... Parameter auslesen und Seite entsprechend laden
+(function() {
+  var params = new URLSearchParams(window.location.search);
+  var tab = params.get('tab');
+  if (!tab) return;
+  // Tabs werden server-seitig gerendert — nur URL sauber halten
+  history.replaceState(null, '', window.location.pathname + (tab ? '?tab=' + tab : ''));
+})();
+
+// HTMX Test-Ergebnis formatieren
+document.body.addEventListener('htmx:afterRequest', function(evt) {
+  var el = evt.detail.target;
+  if (!el || !el.id.startsWith('test-result-')) return;
+  try {
+    var data = JSON.parse(evt.detail.xhr.responseText);
+    if (data.ok) {
+      el.innerHTML = '<span style="color:var(--green)">&#10003; Verbunden &mdash; HTTP ' + data.status + '</span>';
+    } else {
+      el.innerHTML = '<span style="color:var(--red)">&#10007; Fehler: ' + (data.detail || 'unbekannt') + '</span>';
+    }
+  } catch(e) {}
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+# Nacht-Pipeline Konfiguration
+# Verbindliche Richtlinien für Zielstellung, Zeitplan und Budget
+
+goals:
+  - id: kontakt-bot-suite
+    suite: kontakt-bot
+    acceptance: |
+      Alle Test-Cases grün (no regressions):
+      - Kontakt-Dialog initiiert korrekt
+      - Formularvalidierung funktioniert
+      - Nachricht an n8n weitergeleitet
+    tags:
+      - integration
+      - critical
+
+schedule:
+  window:
+    start: "01:00"  # UTC oder lokale Zeit (dokumentieren!)
+    end: "06:00"
+  cadence: "0 */2 * * *"  # Alle 2 Stunden im Fenster (cron-Format)
+
+budget:
+  max_iterations: 3
+  time_minutes: 30
+  cost_cap: 0.50  # USD, nur bei ORCHESTRATOR_ENGINE=claude
+
+flaky_retries: 2
+
+safety:
+  staging_only: true
+  no_merge: false  # true = simulierter PR, false = echter Merge (nicht empfohlen)

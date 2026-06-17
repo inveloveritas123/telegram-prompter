@@ -1,0 +1,70 @@
+# Dockerfile.orchestrator — Orchestrator-Service (cron-getriebener Bau-Test-Fix-PR-Loop)
+#
+# Nutzung (ein Tick):
+#   docker compose run --rm orchestrator tick
+#   docker compose run --rm orchestrator tick --dry-run
+#
+# Host-Crontab-Alternative (kein Container-cron nötig):
+#   # /etc/cron.d/orchestrator oder crontab -e:
+#   0 2,3,4 * * * cd /pfad/zum/repo && docker compose run --rm orchestrator tick >> /var/log/orchestrator.log 2>&1
+#
+# Container-internes cron (Alternative, aktiviere das CMD unten):
+#   Crontab im Container: "*/30 2-5 * * * python -m orchestrator.run tick >> /var/log/cron.log 2>&1"
+#
+# Auth für echte Engine (ORCHESTRATOR_ENGINE=claude):
+#   ~/.claude des Hosts wird read-only gemountet (siehe compose-Volume).
+#   Kein API-Key im Image nötig.
+
+FROM python:3.12-slim
+
+# Systempakete: git (für Branch/PR-Operationen), cron (optional)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        cron \
+    && rm -rf /var/lib/apt/lists/*
+
+# Platz für Claude Code CLI (echte Engine, ORCHESTRATOR_ENGINE=claude).
+# Installation erfolgt zur Laufzeit via Volume-Mount oder RUN-Block:
+#   RUN curl -fsSL https://claude.ai/install.sh | sh
+# Im Dry-Run (MockEngine) wird die CLI nicht benötigt.
+
+WORKDIR /app
+
+# Framework (zukunftsbund-bottests) als Package verfügbar machen
+COPY zukunftsbund-bottests/ /app/zukunftsbund-bottests/
+RUN pip install --no-cache-dir \
+        PyYAML \
+        httpx \
+    && pip install --no-cache-dir -r /app/zukunftsbund-bottests/requirements.txt \
+    || true
+
+# Orchestrator-Code
+COPY orchestrator/ /app/orchestrator/
+RUN pip install --no-cache-dir -r /app/orchestrator/requirements.txt
+
+# Config-Verzeichnis (wird als Volume gemountet, hier nur für lokale Läufe)
+COPY config/ /app/config/
+
+# State- und Report-Verzeichnisse anlegen
+RUN mkdir -p /app/state /data/reports
+
+# PYTHONPATH: Framework und Orchestrator als Packages
+ENV PYTHONPATH=/app/zukunftsbund-bottests:/app
+
+# Staging-Marker — NIEMALS auf false setzen (Leitplanke)
+ENV ORCHESTRATOR_ENGINE=mock
+ENV PROMPTER_MCP_URL=http://prompter-mcp:8080/mcp
+ENV STATE_PATH=/app/state/STATE.md
+ENV REPORTS_DIR=/data/reports
+ENV PIPELINE_CONFIG=/app/config/pipeline.yml
+
+# Crontab-Datei für Container-internen cron (Nacht-Fenster 02–05 UTC, alle 30 Min)
+RUN echo "*/30 2-5 * * * root python -m orchestrator.run tick >> /var/log/cron.log 2>&1\n" \
+    > /etc/cron.d/orchestrator-tick \
+    && chmod 0644 /etc/cron.d/orchestrator-tick
+
+# ENTRYPOINT: ein Tick oder cron-Daemon
+# Für Host-Crontab: ENTRYPOINT ["python", "-m", "orchestrator.run"]
+# Für Container-cron: CMD starten
+ENTRYPOINT ["python", "-m", "orchestrator.run"]
+CMD ["tick"]

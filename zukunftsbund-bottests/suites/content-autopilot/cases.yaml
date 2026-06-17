@@ -1,0 +1,34 @@
+suite: content-autopilot
+target:
+  adapter: http
+  base_url: "https://staging.content-autopilot.example"  # NIE Produktion
+  mock_replies:
+    C1-post-struktur:
+      - '{"post": "Wir bauen Brücken zwischen Idee und Umsetzung.", "brand_voice": "v3", "cost_eur": 0.012}'
+    C2-fallback-kette:
+      - '{"post": "Fallback griff.", "model": "gemini"}'
+
+setup:
+  env: staging
+
+cases:
+  - id: C1-post-struktur
+    desc: "Input rein -> erwartete Post-Struktur raus, Brand-Voice eingehalten"
+    steps:
+      - send:
+          method: POST
+          path: /generate
+          json: { topic: "Netzwerken auf Messen", audience: "B2B" }
+      - expect: { contains: "post" }
+      - expect: { not_contains: "ganzheitlich" }   # Bann-Wort Brand-Voice v3
+      - expect: { not_contains: "Betrieb" }
+      - expect: { latency_below: 8s }
+
+  - id: C2-fallback-kette
+    desc: "Primärmodell aus -> Fallback (Gemini) greift"
+    steps:
+      - send:
+          method: POST
+          path: /generate
+          json: { topic: "Test", force_fallback: true }
+      - expect: { contains: "model" }
