@@ -34,10 +34,12 @@ services:
     env_file: .env
     networks:
       - telegram-prompter-net
-    # Kein Standardbefehl — statt `docker compose up` nutze:
-    # docker compose run --rm orchestrator tick
-    # Für Dry-Run: docker compose run --rm orchestrator --dry-run
-    command: ["sleep", "infinity"]
+    # Cron-getrieben: läuft NICHT bei `docker compose up` mit (profile "manual"),
+    # sondern pro Nacht-Tick über die Host-Crontab:
+    #   docker compose run --rm orchestrator tick
+    #   docker compose run --rm orchestrator tick --dry-run
+    # Das Image macht das von sich aus (ENTRYPOINT python -m orchestrator.run, CMD tick).
+    profiles: ["manual"]
 
   admin:
     build:
