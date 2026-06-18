@@ -18,9 +18,10 @@ def test_tag_filter_runs_only_album():
     result = asyncio.run(run_suite(_load(), dry_run=True, tags={"album"}))
     by_id = {c.id: c.status for c in result.cases}
     assert by_id["T7-album-vorder-rueck"] is Status.PASS
+    assert by_id["T8-album-drei-seiten"] is Status.PASS
     assert by_id["T1-neuer-kontakt-foto"] is Status.SKIP
     assert by_id["T12-passwort-riegel"] is Status.SKIP
-    assert result.executed == 1
+    assert result.executed == 2  # T7 + T8 haben beide den Tag 'album'
     assert result.all_green  # Skips zählen nicht als rot
 
 

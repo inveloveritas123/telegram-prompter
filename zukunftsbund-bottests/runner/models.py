@@ -104,6 +104,9 @@ class SuiteResult:
     cases: list[CaseResult] = field(default_factory=list)
     started_at: str = ""
     finished_at: str = ""
+    # Optionaler Kosten-Platzhalter (z. B. aus LLM-as-judge Sprint 7).
+    # Default 0.0 — rückwärtskompatibel, wird nur befüllt wenn Adapter Kosten meldet.
+    cost: float = 0.0
 
     @property
     def passed(self) -> int:
@@ -126,3 +129,42 @@ class SuiteResult:
     def all_green(self) -> bool:
         """Grün = kein gefahrener Fall ist FAIL/ERROR. Übersprungene zählen nicht."""
         return all(c.status in (Status.PASS, Status.SKIP) for c in self.cases)
+
+    # --- Aggregat-Metriken (Latenz) ---
+
+    @property
+    def total_latency_ms(self) -> float:
+        """Summe aller Step-Latenzen über alle Fälle."""
+        return sum(
+            s.latency_ms
+            for c in self.cases
+            for s in c.steps
+            if s.latency_ms is not None
+        )
+
+    @property
+    def avg_latency_ms(self) -> float | None:
+        """Durchschnittliche Step-Latenz; None wenn keine Latenz-Daten vorhanden."""
+        values = [
+            s.latency_ms
+            for c in self.cases
+            for s in c.steps
+            if s.latency_ms is not None
+        ]
+        return sum(values) / len(values) if values else None
+
+    @property
+    def max_latency_ms(self) -> float | None:
+        """Maximale Step-Latenz; None wenn keine Latenz-Daten vorhanden."""
+        values = [
+            s.latency_ms
+            for c in self.cases
+            for s in c.steps
+            if s.latency_ms is not None
+        ]
+        return max(values) if values else None
+
+    @property
+    def total_duration_ms(self) -> float:
+        """Summe der Case-Laufzeiten (duration_ms) als Gesamt-Laufzeit."""
+        return sum(c.duration_ms for c in self.cases)

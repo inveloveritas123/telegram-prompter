@@ -14,8 +14,8 @@ def test_dry_run_kontakt_bot_all_green():
     suite = load_suite(ROOT / "suites" / "kontakt-bot" / "cases.yaml")
     result = asyncio.run(run_suite(suite, dry_run=True))
     # Im Dry-Run liefern die Mock-Antworten genau die erwarteten Strings.
-    assert result.total == 3
-    assert result.passed == 3, [
+    assert result.total == 17
+    assert result.passed == 17, [
         (c.id, c.status, [s.detail for s in c.steps if s.status is Status.FAIL])
         for c in result.cases
     ]

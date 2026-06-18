@@ -1,0 +1,116 @@
+# feature_map.yaml — Mapping von geänderten Pfaden/Features auf Test-Tags
+#
+# Wird von scripts/select_tests.py gelesen, um nach einem `git diff` die
+# passenden --tag- oder --only-Argumente für den Runner zu erzeugen.
+#
+# Aufbau:
+#   rules:
+#     - globs:   Liste von fnmatch-Muster (relativ zum Repo-Root)
+#       tags:    Liste von Test-Tags, die bei einem Treffer aktiviert werden
+#       comment: optionale Erklärung
+#
+# Regeln werden in der angegebenen Reihenfolge geprüft; ein Pfad kann mehrere
+# Regeln treffen — alle passenden Tags werden vereinigt.
+#
+# Wildcards folgen Python fnmatch:
+#   *   passt auf alles außer /
+#   **  wird NICHT nativ unterstützt; Pfade werden als flache Strings geprüft
+#   ?   passt auf genau ein beliebiges Zeichen
+#
+# Beispiel-Aufruf:
+#   python scripts/select_tests.py --base HEAD~1
+#   -> gibt z.B. `--tag album --tag merge` aus
+
+rules:
+
+  # --- Album-Feature ---
+  # Änderungen am Album-Sammellogik oder zugehörigen Fixtures
+  - globs:
+      - "suites/*/cases.yaml"       # Trifft beim Schreiben neuer Album-Cases
+      - "adapters/telegram.py"      # Album-Versand geht durch den Telegram-Adapter
+      - "suites/kontakt-bot/fixtures/tilia_vorder*.jpg"
+      - "suites/kontakt-bot/fixtures/tilia_rueck*.jpg"
+    tags: [album]
+    comment: >
+      Änderungen an Album-Fixtures oder dem Telegram-Adapter betreffen T7
+      (Album Vorder-/Rückseite). Zusätzlich greift die suites-Regel, damit
+      neue Album-Cases in cases.yaml direkt erkannt werden.
+
+  # --- OCR / Foto-Einzelbild ---
+  - globs:
+      - "suites/kontakt-bot/fixtures/tilia_vorderseite.jpg"
+      - "suites/kontakt-bot/fixtures/*.jpg"
+      - "suites/kontakt-bot/fixtures/*.png"
+    tags: [ocr, foto]
+    comment: >
+      Jedes geänderte Foto-Fixture im Kontakt-Bot gehört zur OCR-Pipeline.
+      Betrifft T1 (Einzelfoto), kann aber auch T7 (Album) streifen.
+
+  # --- Spracherkennung / Voice ---
+  - globs:
+      - "suites/*/fixtures/*.ogg"
+      - "suites/*/fixtures/*.mp3"
+      - "suites/*/fixtures/*.wav"
+      - "suites/*/fixtures/*.opus"
+    tags: [voice]
+    comment: >
+      Sprachfixtures für Voice-Tests (z.B. T_voice-*). Auch relevant wenn
+      der Telegram-Adapter send_voice ändert.
+
+  - globs:
+      - "adapters/telegram.py"
+    tags: [voice, ocr, album, dialog]
+    comment: >
+      Der zentrale Telegram-Adapter bedient alle Kanal-spezifischen Features.
+      Änderungen hier betreffen potenziell voice, ocr, album und dialog.
+
+  # --- Auth / Passwort-Riegel ---
+  - globs:
+      - "suites/kontakt-bot/cases.yaml"
+    tags: [auth]
+    comment: >
+      Passwort-Riegel (T12) ist Teil von cases.yaml. Wird auch bei suites/-
+      Änderungen markiert.
+
+  # --- Dialog-Flow ---
+  - globs:
+      - "suites/kontakt-bot/cases.yaml"
+    tags: [dialog]
+    comment: >
+      Jeder Dialog-Schritt (T1, T3, ...) ist in cases.yaml codiert.
+      Änderungen hier -> dialog-Tags laufen lassen.
+
+  # --- Engine / Kern-Framework ---
+  - globs:
+      - "runner/engine.py"
+      - "runner/loader.py"
+      - "runner/models.py"
+    tags: [ocr, album, voice, auth, dialog]
+    comment: >
+      Änderungen an der Runner-Engine können alle Features beeinflussen.
+      Zur Sicherheit alle Feature-Tags aktivieren.
+
+  # --- Assertions ---
+  - globs:
+      - "assertions/core.py"
+      - "assertions/*.py"
+    tags: [ocr, album, voice, auth, dialog]
+    comment: >
+      Assertions sind feature-übergreifend; Änderungen erzwingen alle Tags.
+
+  # --- HTTP-Adapter / Content-Autopilot ---
+  - globs:
+      - "adapters/http.py"
+      - "adapters/n8n.py"
+      - "suites/content-autopilot/cases.yaml"
+    tags: [http, content, fallback]
+    comment: >
+      HTTP-Adapter und Content-Autopilot-Suite (C1, C2).
+
+  # --- Scripts / Change-Detection selbst ---
+  - globs:
+      - "scripts/select_tests.py"
+      - "feature_map.yaml"
+    tags: [ocr, album, voice, auth, dialog]
+    comment: >
+      Wenn die Change-Detection-Logik selbst geändert wird, alle Tests fahren.

@@ -115,6 +115,49 @@ def _n8n_ok(value: Any, resp: Response, ctx: dict) -> tuple[bool, str]:
     return ok, "" if ok else f"n8n-Workflow {workflow_id} lief NICHT grün"
 
 
+# --- LLM-as-Judge ---
+
+
+@assertion("judge")
+def _judge(spec: dict, resp: Response, ctx: dict) -> tuple[bool, str]:
+    """LLM-as-Judge: Bewertet eine Antwort anhand einer Rubrik.
+
+    Erwartet einen Judge-Provider in context["judge"] mit Methode
+    evaluate(text, rubric) -> {"pass": bool, "reason": str, "cost_eur": float}.
+
+    spec-Felder:
+        rubric   – Name/Beschreibung der Bewertungsrubrik (z. B. "Brand-Voice v3")
+        max_cost – Budget-Grenze in EUR pro Aufruf (Default 0.02)
+
+    Ohne Provider (Dry-Run): übersprungen=ok.
+    Budget-Überschreitung: Fehler mit Kostendetail.
+    """
+    provider = ctx.get("judge")
+    if provider is None:
+        return True, "(judge-Provider fehlt — übersprungen)"
+
+    rubric: str = spec.get("rubric", "Brand-Voice")
+    max_cost: float = float(spec.get("max_cost", 0.02))
+
+    try:
+        result = provider.evaluate(resp.text, rubric)
+    except Exception as exc:
+        return False, f"judge-Provider-Fehler: {exc}"
+
+    cost: float = float(result.get("cost_eur", 0.0))
+    if cost > max_cost:
+        return False, (
+            f"judge-Budget überschritten: {cost:.4f} EUR > Limit {max_cost:.4f} EUR "
+            f"(Rubrik: {rubric!r})"
+        )
+
+    ok: bool = bool(result.get("pass", False))
+    reason: str = result.get("reason", "")
+    if not ok:
+        return False, f"judge FAIL ({rubric!r}): {reason}"
+    return True, ""
+
+
 # --- Helpers ---
 
 

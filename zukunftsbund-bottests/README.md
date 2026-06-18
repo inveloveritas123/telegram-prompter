@@ -64,3 +64,44 @@ Orchestrierung: `runner/engine.py` lädt Suite → fährt Adapter → prüft Ass
 
 Setup der Umgebung: `.env.example` kopieren nach `.env` und ausfüllen.
 ```
+
+## Echte Telegram-Session (Sprint 1)
+
+Die Adapter-Verbindung läuft standardmäßig im Dry-Run-Modus (mit Mock-Antworten).
+Um echte Telegram-Tests zu fahren, brauchst du eine StringSession des Test-Accounts.
+
+### Einmalig: Session erzeugen
+
+```bash
+# Voraussetzungen: TELEGRAM_API_ID und TELEGRAM_API_HASH in .env gesetzt
+python scripts/make_session.py
+```
+
+Das Skript fragt nach deiner Test-Account-Telefonnummer und generiert einen
+verschlüsselten Session-String. Diesen kopierst du in `.env`:
+
+```bash
+# .env
+TELEGRAM_API_ID=123456
+TELEGRAM_API_HASH=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TELEGRAM_TEST_SESSION=<hier einfügen, was make_session.py ausgibt>
+```
+
+**Sicherheit:** Der StringSession ist vertraulich wie ein Passwort. Niemals in Git
+oder öffentliche Repos committen. `.env` und `*.session` stehen in `.gitignore`.
+
+### Tests mit echter Verbindung fahren
+
+```bash
+# Dry-Run (Mock, kein Telegram)
+python -m runner.run --suite kontakt-bot --dry-run
+
+# Echte Verbindung (benötigt gültige Session und Netzwerk)
+python -m runner.run --suite kontakt-bot
+```
+
+Der Adapter prüft vor jedem Lauf, ob der Ziel-Bot in `TELEGRAM_ALLOWED_TEST_BOTS`
+freigegeben ist (Sicherheits-Riegel). Nur dort freigegebene Bots werden getestet,
+um Verwechslungen mit Produktions-Bots auszuschließen.
+
+```bash

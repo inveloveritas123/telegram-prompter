@@ -35,6 +35,17 @@ def console_report(result: SuiteResult) -> str:
     lines.append("─" * 56)
     tail = f"  ({result.skipped} übersprungen)" if result.skipped else ""
     lines.append(f"Ergebnis: {result.passed}/{result.executed} grün{tail}")
+    # Latenz-Zusammenfassung
+    avg = result.avg_latency_ms
+    if avg is not None:
+        lines.append(
+            f"Latenz:  gesamt={result.total_latency_ms:.0f}ms  "
+            f"avg={avg:.0f}ms  max={result.max_latency_ms:.0f}ms"
+        )
+    elif result.total_duration_ms > 0:
+        lines.append(f"Laufzeit: {result.total_duration_ms:.0f}ms (keine Step-Latenz erfasst)")
+    if result.cost > 0.0:
+        lines.append(f"Kosten:  ${result.cost:.4f}")
     return "\n".join(lines)
 
 
@@ -65,4 +76,17 @@ def _serialize(result: SuiteResult) -> dict:
         case["status"] = case["status"].value if hasattr(case["status"], "value") else case["status"]
         for step in case["steps"]:
             step["status"] = step["status"].value if hasattr(step["status"], "value") else step["status"]
+    # Aggregat-Metriken additiv einbetten (neue Felder, rückwärtskompatibel)
+    d["metrics"] = {
+        "total_duration_ms": result.total_duration_ms,
+        "total_latency_ms": result.total_latency_ms,
+        "avg_latency_ms": result.avg_latency_ms,
+        "max_latency_ms": result.max_latency_ms,
+        "cost": result.cost,
+        "passed": result.passed,
+        "failed": sum(1 for c in result.cases if c.status is Status.FAIL),
+        "errors": sum(1 for c in result.cases if c.status is Status.ERROR),
+        "skipped": result.skipped,
+        "total": result.total,
+    }
     return d

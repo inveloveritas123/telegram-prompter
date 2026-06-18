@@ -63,6 +63,14 @@ async def run_suite(
         run_id=uuid.uuid4().hex[:12],
         started_at=_now(),
     )
+
+    # Sprint 2: reset_static_data vor dem Lauf, falls der Suite-Setup es verlangt
+    # und ein n8n-Client im Context verfügbar ist.
+    n8n_client = context.get("n8n")
+    reset_workflow_id = suite.setup.get("reset_static_data")
+    if n8n_client is not None and reset_workflow_id:
+        n8n_client.reset_static_data(reset_workflow_id)
+
     await adapter.setup()
     try:
         for case in suite.cases:

@@ -14,12 +14,76 @@ target:
       - "Kontext eingeben:"
       - "Freigabe? (1=ja)"
       - "Neu gespeichert: #42"
+    T2-ocr-rueckseite:
+      - "Foto erkannt. Bitte Rueckseite senden."
+      - "Rueckseite erkannt. Daten zusammengefuehrt."
+      - "BNI-Kontakt? (1=ja 2=nein)"
+      - "Typ waehlen:"
+      - "Freigabe? (1=ja)"
+      - "Neu gespeichert: #43"
+    T3-ocr-kein-text:
+      - "OCR konnte keinen Text erkennen. Bitte erneut senden."
+    T4-voice-transkript:
+      - "Sprachnotiz empfangen. Transkription laeuft..."
+      - "Transkript: Mustermann GmbH, Tel 0123 456789"
+      - "BNI-Kontakt? (1=ja 2=nein)"
+      - "Typ waehlen:"
+      - "Freigabe? (1=ja)"
+      - "Neu gespeichert: #44"
+    T5-korrektur-komma:
+      - "Korrektur erkannt (Komma). Feld aktualisiert."
+      - "Freigabe? (1=ja)"
+      - "Aktualisiert: #45"
+    T6-korrektur-doppelpunkt:
+      - "Korrektur erkannt (Doppelpunkt). Feld aktualisiert."
+      - "Freigabe? (1=ja)"
+      - "Aktualisiert: #46"
     T7-album-vorder-rueck:
       - "Beide Seiten zusammengefuehrt."
+    T8-album-drei-seiten:
+      - "Album empfangen (3 Bilder). Beste Seiten automatisch gewaehlt."
+      - "BNI-Kontakt? (1=ja 2=nein)"
+      - "Typ waehlen:"
+      - "Freigabe? (1=ja)"
+      - "Neu gespeichert: #47"
+    T9-dedupe-gleicher-kontakt:
+      - "Foto erkannt. Bitte Rueckseite senden."
+      - "Duplikat gefunden: #42 (80% Uebereinstimmung). Trotzdem speichern? (1=ja 2=nein)"
+      - "Abgebrochen. Kein neuer Eintrag."
+    T10-dedupe-update:
+      - "Foto erkannt. Bitte Rueckseite senden."
+      - "Duplikat gefunden: #42 (90% Uebereinstimmung). Trotzdem speichern? (1=ja 2=nein)"
+      - "Aktualisiert: #42"
+    T11-update-feld:
+      - "Welches Feld aktualisieren? (name/tel/email/firma)"
+      - "Neuer Wert fuer 'tel':"
+      - "Freigabe? (1=ja)"
+      - "Aktualisiert: #48"
     T12-passwort-riegel:
       - "Bitte Passwort eingeben."
       - "Zugriff verweigert."
       - "Freigeschaltet."
+    T13-passwort-falsch-dreimal:
+      - "Bitte Passwort eingeben."
+      - "Zugriff verweigert."
+      - "Zugriff verweigert."
+      - "Gesperrt: zu viele Fehlversuche. Bitte warten."
+    T14-rate-limit:
+      - "Foto erkannt. Bitte Rueckseite senden."
+      - "Neu gespeichert: #50"
+      - "Foto erkannt. Bitte Rueckseite senden."
+      - "Neu gespeichert: #51"
+      - "Zu viele Anfragen. Bitte warten."
+    T15-korrektur-slash:
+      - "Korrektur erkannt (Slash). Feld aktualisiert."
+      - "Freigabe? (1=ja)"
+      - "Aktualisiert: #52"
+    T16-korrektur-pipe:
+      - "Korrektur erkannt (Pipe). Feld aktualisiert."
+      - "Freigabe? (1=ja)"
+      - "Aktualisiert: #53"
+    T17-voice-kein-ton:
+      - "Sprachnotiz konnte nicht verarbeitet werden. Bitte erneut senden."
 
 setup:
   reset_static_data: true   # via n8n-API: Sessions/Auth leeren vor Lauf
@@ -42,6 +106,67 @@ cases:
       - send: "1"
       - expect: { regex: "Neu gespeichert: #\\d+" }
 
+  - id: T2-ocr-rueckseite
+    desc: "Vorder- und Rueckseite einzeln, OCR beider Seiten, kompletter Dialog"
+    tags: [ocr, dialog, foto]
+    steps:
+      - send_photo: fixtures/tilia_vorderseite.jpg
+      - expect: { contains: "erkannt" }
+      - send_photo: fixtures/tilia_rueck.jpg
+      - expect: { contains: "zusammengefuehrt" }
+      - send: "weiter"
+      - expect: { contains: "BNI-Kontakt" }
+      - send: "1"
+      - expect: { contains: "Typ" }
+      - send: "2"
+      - send: "1"
+      - expect: { regex: "Neu gespeichert: #\\d+" }
+
+  - id: T3-ocr-kein-text
+    desc: "Leeres/unlesliches Foto — Bot meldet OCR-Fehler"
+    tags: [ocr, fehler]
+    steps:
+      - send_photo: fixtures/blank_stub.jpg
+      - expect: { contains: "konnte keinen Text erkennen" }
+
+  - id: T4-voice-transkript
+    desc: "Sprachnotiz wird transkribiert und als Kontakt gespeichert"
+    tags: [voice, dialog]
+    steps:
+      - send_voice: fixtures/kontakt_stub.ogg
+      - expect: { contains: "Sprachnotiz empfangen" }
+      - send: "weiter"
+      - expect: { contains: "Transkript" }
+      - send: "weiter"
+      - expect: { contains: "BNI-Kontakt" }
+      - send: "2"
+      - expect: { contains: "Typ" }
+      - send: "3"
+      - send: "1"
+      - expect: { regex: "Neu gespeichert: #\\d+" }
+
+  - id: T5-korrektur-komma
+    desc: "Korrektur-Parser: Trenner Komma (Feld, Wert)"
+    tags: [korrektur, dialog]
+    steps:
+      - send: "tel, 0123 456789"
+      - expect: { contains: "Komma" }
+      - send: "weiter"
+      - expect: { contains: "Freigabe" }
+      - send: "1"
+      - expect: { regex: "Aktualisiert: #\\d+" }
+
+  - id: T6-korrektur-doppelpunkt
+    desc: "Korrektur-Parser: Trenner Doppelpunkt (Feld: Wert)"
+    tags: [korrektur, dialog]
+    steps:
+      - send: "email: test@example.com"
+      - expect: { contains: "Doppelpunkt" }
+      - send: "weiter"
+      - expect: { contains: "Freigabe" }
+      - send: "1"
+      - expect: { regex: "Aktualisiert: #\\d+" }
+
   - id: T7-album-vorder-rueck
     desc: "Beide Seiten als Album, Merge ohne Konflikt"
     tags: [album, foto, merge]
@@ -50,6 +175,55 @@ cases:
       - wait: 4s
       - expect: { contains: "zusammengefuehrt" }
       - expect: { not_contains: "(kein Name)" }
+
+  - id: T8-album-drei-seiten
+    desc: "Album mit drei Bildern — Bot waehlt beste Seiten automatisch"
+    tags: [album, foto, merge]
+    steps:
+      - send_album: [fixtures/tilia_vorderseite.jpg, fixtures/tilia_vorder.jpg, fixtures/tilia_rueck.jpg]
+      - wait: 4s
+      - expect: { contains: "Album empfangen" }
+      - send: "weiter"
+      - expect: { contains: "BNI-Kontakt" }
+      - send: "1"
+      - expect: { contains: "Typ" }
+      - send: "2"
+      - send: "1"
+      - expect: { regex: "Neu gespeichert: #\\d+" }
+
+  - id: T9-dedupe-gleicher-kontakt
+    desc: "Bekannter Kontakt wird als Duplikat erkannt — Nutzer bricht ab"
+    tags: [dedupe, dialog]
+    steps:
+      - send_photo: fixtures/tilia_vorderseite.jpg
+      - expect: { contains: "erkannt" }
+      - send: "weiter"
+      - expect: { contains: "Duplikat" }
+      - send: "2"
+      - expect: { contains: "Abgebrochen" }
+
+  - id: T10-dedupe-update
+    desc: "Bekannter Kontakt — Nutzer bestaetigt Update statt Neuanlage"
+    tags: [dedupe, update, dialog]
+    steps:
+      - send_photo: fixtures/tilia_vorderseite.jpg
+      - expect: { contains: "erkannt" }
+      - send: "weiter"
+      - expect: { contains: "Duplikat" }
+      - send: "1"
+      - expect: { regex: "Aktualisiert: #\\d+" }
+
+  - id: T11-update-feld
+    desc: "Einzelnes Feld eines bestehenden Kontakts aktualisieren"
+    tags: [update, dialog]
+    steps:
+      - send: "/update 48"
+      - expect: { contains: "Welches Feld" }
+      - send: "tel"
+      - expect: { contains: "Neuer Wert" }
+      - send: "0987 654321"
+      - send: "1"
+      - expect: { regex: "Aktualisiert: #\\d+" }
 
   - id: T12-passwort-riegel
     desc: "Frische ID muss Passwort eingeben"
@@ -64,3 +238,61 @@ cases:
       # - send: "{{ env.TEST_PASSWORT }}"
       - send: "geheim"
       - expect: { contains: "Freigeschaltet" }
+
+  - id: T13-passwort-falsch-dreimal
+    desc: "Drei Fehlversuche beim Passwort sperren den Nutzer"
+    tags: [auth, sicherheit, ratelimit]
+    setup: { bump_passwort_version: true }
+    steps:
+      - send: "hallo"
+      - expect: { contains: "Passwort" }
+      - send: "falsch1"
+      - expect: { contains: "verweigert" }
+      - send: "falsch2"
+      - expect: { contains: "verweigert" }
+      - send: "falsch3"
+      - expect: { contains: "Gesperrt" }
+
+  - id: T14-rate-limit
+    desc: "Zu viele Anfragen hintereinander loesen Rate-Limit-Meldung aus"
+    tags: [ratelimit]
+    steps:
+      - send_photo: fixtures/tilia_vorderseite.jpg
+      - expect: { contains: "erkannt" }
+      - send: "1"
+      - expect: { regex: "Neu gespeichert: #\\d+" }
+      - send_photo: fixtures/tilia_vorder.jpg
+      - expect: { contains: "erkannt" }
+      - send: "1"
+      - expect: { regex: "Neu gespeichert: #\\d+" }
+      - send_photo: fixtures/blank_stub.jpg
+      - expect: { contains: "warten" }
+
+  - id: T15-korrektur-slash
+    desc: "Korrektur-Parser: Trenner Slash (Feld/Wert)"
+    tags: [korrektur, dialog]
+    steps:
+      - send: "firma/Mustermann GmbH"
+      - expect: { contains: "Slash" }
+      - send: "weiter"
+      - expect: { contains: "Freigabe" }
+      - send: "1"
+      - expect: { regex: "Aktualisiert: #\\d+" }
+
+  - id: T16-korrektur-pipe
+    desc: "Korrektur-Parser: Trenner Pipe (Feld|Wert)"
+    tags: [korrektur, dialog]
+    steps:
+      - send: "name|Max Muster"
+      - expect: { contains: "Pipe" }
+      - send: "weiter"
+      - expect: { contains: "Freigabe" }
+      - send: "1"
+      - expect: { regex: "Aktualisiert: #\\d+" }
+
+  - id: T17-voice-kein-ton
+    desc: "Leere/defekte Sprachnotiz — Bot meldet Verarbeitungsfehler"
+    tags: [voice, fehler]
+    steps:
+      - send_voice: fixtures/stille_stub.ogg
+      - expect: { contains: "konnte nicht verarbeitet werden" }

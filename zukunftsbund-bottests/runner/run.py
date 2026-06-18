@@ -16,6 +16,8 @@ from pathlib import Path
 from runner.engine import run_suite
 from runner.loader import discover_suites, load_suite
 from runner.reporter import console_report, telegram_summary, write_json
+from adapters.n8n import N8nClient
+from adapters.sheets import build_sheet_provider
 
 ROOT = Path(__file__).resolve().parent.parent
 SUITES_DIR = ROOT / "suites"
@@ -36,11 +38,36 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return p.parse_args(argv)
 
 
+def _build_context(*, dry_run: bool) -> dict:
+    """Baut den Lauf-Context aus der Umgebung.
+
+    Sprint 2: n8n-Client (wenn N8N_BASE_URL gesetzt und nicht Dry-Run).
+    Sprint 4: Sheet-Provider (wenn SHEET_TEST_ID gesetzt und nicht Dry-Run).
+    Im Dry-Run sind beide None → Assertions überspringen sauber.
+    """
+    ctx: dict = {}
+
+    # n8n-Provider
+    import os
+    if not dry_run and os.environ.get("N8N_BASE_URL"):
+        ctx["n8n"] = N8nClient(dry_run=False)
+    else:
+        ctx["n8n"] = N8nClient(dry_run=True)  # Dry-Run-Stub: alle Calls neutral
+
+    # Sheet-Provider (None wenn nicht konfiguriert oder Dry-Run)
+    sheet = build_sheet_provider(dry_run=dry_run)
+    if sheet is not None:
+        ctx["sheet"] = sheet
+
+    return ctx
+
+
 async def _run_one(name: str, path: Path, args: argparse.Namespace) -> bool:
     suite = load_suite(path)
     only = set(args.only) or None
     tags = set(args.tag) or None
-    result = await run_suite(suite, dry_run=args.dry_run, only=only, tags=tags)
+    context = _build_context(dry_run=args.dry_run)
+    result = await run_suite(suite, dry_run=args.dry_run, only=only, tags=tags, context=context)
     if args.quiet:
         print(telegram_summary(result))
     else:
